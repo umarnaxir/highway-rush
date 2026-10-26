@@ -23,6 +23,8 @@ export class InputController {
   };
   private gamepadNitro = false;
   private lastGamepadPause = false;
+  /** Continuous steering from tilt or touch-drag, in the range -1..1. */
+  private analogSteer = 0;
   private disposed = false;
   private enabled = false;
   private onPause: () => void;
@@ -100,6 +102,11 @@ export class InputController {
     this.virtual[action] = active;
   }
 
+  /** Feed a continuous steering axis from a tilt sensor or pointer drag. */
+  setAnalogSteer(value: number): void {
+    this.analogSteer = Math.min(1, Math.max(-1, Number.isFinite(value) ? value : 0));
+  }
+
   clearTransient(): void {
     this.down.clear();
     this.virtual.steerLeft = false;
@@ -108,6 +115,7 @@ export class InputController {
     this.virtual.brake = false;
     this.virtual.nitro = false;
     this.gamepadNitro = false;
+    this.analogSteer = 0;
   }
 
   private namedDown(action: ControlAction): boolean {
@@ -153,6 +161,7 @@ export class InputController {
     const right = this.namedDown('steerRight');
     let steer = (right ? 1 : 0) - (left ? 1 : 0);
     if (Math.abs(steerAxis) > Math.abs(steer)) steer = steerAxis;
+    if (Math.abs(this.analogSteer) > Math.abs(steer)) steer = this.analogSteer;
     const throttle = Math.max(
       this.namedDown('accelerate') ? 1 : 0,
       gamepad ? gameThrottle : 0,

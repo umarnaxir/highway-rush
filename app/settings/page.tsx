@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import {
   Accessibility,
@@ -8,9 +8,11 @@ import {
   Gauge,
   Gamepad2,
   Keyboard,
+  MoveHorizontal,
   Palette,
   RotateCcw,
   Settings2,
+  Smartphone,
   SlidersHorizontal,
   Trash2,
   Volume2,
@@ -27,6 +29,13 @@ import {
   useGameStore,
 } from '@/lib/store/useGameStore';
 import { getAudioManager } from '@/lib/audio/AudioManager';
+import {
+  requestTiltAccess,
+  TiltController,
+  tiltNeedsPermission,
+  tiltSupported,
+  type TiltReadout,
+} from '@/lib/game/tilt';
 import { useUiStore } from '@/lib/store/useUiStore';
 import type {
   ControlAction,
@@ -51,7 +60,7 @@ const Layout = styled.div`
 
 const Side = styled.div`
   position: sticky;
-  top: calc(var(--nav-height) + 20px);
+  top: calc(var(--nav-total-height) + 20px);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -106,7 +115,7 @@ const Sections = styled.div`
 
 const Section = styled(Panel)`
   padding: clamp(20px, 3vw, 30px);
-  scroll-margin-top: calc(var(--nav-height) + 18px);
+  scroll-margin-top: calc(var(--nav-total-height) + 18px);
 `;
 
 const SectionTop = styled.div`
@@ -244,6 +253,79 @@ const DangerRow = styled.div`
   }
 `;
 
+const TiltPanel = styled.div`
+  margin: 4px 0 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background:
+    radial-gradient(420px circle at 100% 0%, rgba(215, 255, 63, 0.06), transparent 60%),
+    rgba(0, 0, 0, 0.16);
+`;
+
+const TiltHead = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+
+  strong {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  svg {
+    color: var(--lime);
+  }
+`;
+
+const TiltReadout = styled.div<{ $active: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid ${({ $active }) => ($active ? 'rgba(215, 255, 63, 0.26)' : 'var(--line)')};
+  border-radius: 4px;
+  background: ${({ $active }) => ($active ? 'rgba(215, 255, 63, 0.05)' : 'rgba(255, 255, 255, 0.02)')};
+  color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text-muted)')};
+  font-family: ${({ theme }) => theme.fonts.mono};
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+
+  span:first-child {
+    min-width: 78px;
+  }
+
+  i {
+    position: relative;
+    flex: 1;
+    height: 5px;
+    min-width: 80px;
+    border-radius: 999px;
+    background: rgba(245, 246, 247, 0.12);
+  }
+
+  i::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: calc(50% + var(--readout-steer, 0%));
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 12px currentColor;
+    transform: translate(-50%, -50%);
+  }
+`;
+
 const keyLabels: Record<ControlAction, string> = {
   steerLeft: 'Steer left',
   steerRight: 'Steer right',
@@ -312,6 +394,84 @@ export default function SettingsPage() {
   const [recording, setRecording] = useState<ControlAction | null>(null);
   const [confirmDefaults, setConfirmDefaults] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [tiltReadout, setTiltReadout] = useState<TiltReadout | null>(null);
+  const [tiltTesting, setTiltTesting] = useState(false);
+  const [sensorSupported, setSensorSupported] = useState(false);
+  const [needsPermission, setNeedsPermission] = useState(false);
+  const tiltControllerRef = useRef<TiltController | null>(null);
+
+  // Device APIs are client-only. Start from the server-safe state and detect
+  // after hydration so the status copy cannot mismatch the SSR HTML.
+  useEffect(() => {
+    setSensorSupported(tiltSupported());
+    setNeedsPermission(tiltNeedsPermission());
+    return () => {
+      tiltControllerRef.current?.stop();
+      tiltControllerRef.current = null;
+    };
+  }, []);
+
+  const stopTiltTest = () => {
+    tiltControllerRef.current?.stop();
+    tiltControllerRef.current = null;
+    setTiltTesting(false);
+    setTiltReadout(null);
+  };
+
+  const startTiltTest = async () => {
+    if (tiltTesting) {
+      stopTiltTest();
+      return;
+    }
+    if (!tiltSupported()) {
+      pushToast({
+        kind: 'info',
+        title: 'Motion sensor unavailable',
+        message: 'This device or browser does not expose DeviceOrientation. Button and keyboard steering still work.',
+      });
+      return;
+    }
+    setTiltTesting(true);
+    const access = await requestTiltAccess();
+    if (access !== 'granted' && access !== 'active') {
+      setTiltTesting(false);
+      setTiltReadout(null);
+      pushToast({
+        kind: access === 'denied' ? 'error' : 'info',
+        title: access === 'denied' ? 'Motion access denied' : 'Motion access unavailable',
+        message:
+          access === 'denied'
+            ? 'Enable motion access in browser settings, then try again. Touch buttons remain available.'
+            : 'This browser could not start the motion sensor. Touch buttons remain available.',
+      });
+      return;
+    }
+    const controller = new TiltController(settings.controls.tilt, (readout) => {
+      setTiltReadout(readout);
+    });
+    tiltControllerRef.current = controller;
+    const status = await controller.start();
+    if (status !== 'active') {
+      stopTiltTest();
+      pushToast({
+        kind: 'error',
+        title: 'Tilt sensor did not start',
+        message: 'You can still race with on-screen buttons or a keyboard.',
+      });
+      return;
+    }
+    controller.calibrate();
+    setTiltReadout(controller.getReadout());
+  };
+
+  const updateTilt = (patch: Partial<Settings['controls']['tilt']>) => {
+    updateSetting('controls', 'tilt', { ...settings.controls.tilt, ...patch });
+    const controller = tiltControllerRef.current;
+    if (controller) {
+      // Rebuild the live test with the new tuning so the readout is truthful.
+      stopTiltTest();
+    }
+  };
 
   useEffect(() => {
     if (!recording) return;
@@ -552,19 +712,117 @@ export default function SettingsPage() {
                   the HUD hint, tune steering sensitivity, or rebind any keyboard action.
                 </p>
               </div>
-              <Badge>{settings.controls.scheme}</Badge>
+              <Badge>{settings.controls.method}</Badge>
             </SectionTop>
             <Segmented
-              label="Preferred scheme"
-              description="Touch controls appear on small screens regardless of this preference."
-              value={settings.controls.scheme}
+              label="Steering method"
+              description="Your preference is saved locally and carried into every race. Auto uses touch pads on phones, keyboard on desktop and gamepad when one is connected."
+              value={settings.controls.method}
               options={[
+                { value: 'auto', label: 'Auto' },
+                { value: 'buttons', label: 'Touch buttons' },
+                { value: 'drag', label: 'Touch drag' },
+                { value: 'tilt', label: 'Tilt' },
                 { value: 'keyboard', label: 'Keyboard' },
-                { value: 'touch', label: 'Touch' },
                 { value: 'gamepad', label: 'Gamepad' },
               ]}
-              onChange={(value) => updateSetting('controls', 'scheme', value)}
+              onChange={(value) => updateSetting('controls', 'method', value)}
             />
+
+            <TiltPanel>
+              <TiltHead>
+                <strong>
+                  <Smartphone size={14} /> Gyroscope steering
+                </strong>
+                <Button
+                  size="sm"
+                  variant={tiltTesting ? 'danger' : 'secondary'}
+                  icon={tiltTesting ? <RotateCcw size={12} /> : <MoveHorizontal size={12} />}
+                  onClick={() => void startTiltTest()}
+                >
+                  {tiltTesting ? 'Stop test' : 'Test sensor'}
+                </Button>
+              </TiltHead>
+              <TiltReadout
+                $active={tiltTesting && tiltReadout?.status === 'active'}
+                role="status"
+                aria-live="polite"
+              >
+                <span>
+                  {tiltTesting
+                    ? tiltReadout?.status === 'active'
+                      ? 'Sensor active'
+                      : 'Starting…'
+                    : sensorSupported
+                      ? 'Sensor available'
+                      : 'No sensor detected'}
+                </span>
+                <i
+                  style={{
+                    ['--readout-steer' as string]: `${((tiltReadout?.steer ?? 0) * 50).toFixed(1)}%`,
+                  }}
+                  aria-hidden="true"
+                />
+                <span>
+                  {tiltReadout ? `${tiltReadout.angle.toFixed(1)}°` : '—'}
+                </span>
+              </TiltReadout>
+              <Slider
+                label="Tilt sensitivity"
+                description="Scales how far you need to roll the device for full lock."
+                value={settings.controls.tilt.sensitivity}
+                min={0.4}
+                max={2}
+                step={0.05}
+                onChange={(value) => updateTilt({ sensitivity: value })}
+                format={(value) => `${value.toFixed(2)}×`}
+              />
+              <Slider
+                label="Tilt dead zone"
+                description="Small hand movements near centre are ignored. Raise this if the car drifts on a straight."
+                value={settings.controls.tilt.deadZone}
+                min={0}
+                max={0.3}
+                step={0.01}
+                onChange={(value) => updateTilt({ deadZone: value })}
+                format={(value) => `${Math.round(value * 100)}%`}
+              />
+              <Slider
+                label="Tilt smoothing"
+                description="Higher values calm jitter but add a little steering delay. Lower values feel sharper."
+                value={settings.controls.tilt.smoothing}
+                min={0.02}
+                max={0.85}
+                step={0.01}
+                onChange={(value) => updateTilt({ smoothing: value })}
+                format={(value) => `${Math.round(value * 100)}%`}
+              />
+              <Slider
+                label="Maximum tilt angle"
+                description="Physical roll in degrees that maps to full steering lock."
+                value={settings.controls.tilt.maxSteer}
+                min={12}
+                max={55}
+                step={1}
+                onChange={(value) => updateTilt({ maxSteer: value })}
+                format={(value) => `${Math.round(value)}°`}
+              />
+              <Toggle
+                label="Reverse tilt direction"
+                description="Flip the steering axis if the car turns the wrong way when you roll the device."
+                checked={settings.controls.tilt.reverse}
+                onChange={(value) => updateTilt({ reverse: value })}
+              />
+              <Note>
+                Motion access is requested only when you tap Test sensor or start a race — never on
+                page load. On iPhone and iPad, choose Tilt, then allow Motion &amp; Orientation in
+                the browser prompt. Rotate the device to landscape before calibrating; tap Centre
+                during a race at any time. {needsPermission ? 'This browser requires an explicit permission prompt.' : ''} If the
+                sensor is unavailable or denied, the race automatically falls back to touch buttons
+                or keyboard.
+              </Note>
+            </TiltPanel>
+
             <Slider
               label="Steering sensitivity"
               value={settings.controls.sensitivity}
@@ -710,7 +968,7 @@ export default function SettingsPage() {
               format={(value) => `${Math.round(value * 100)}%`}
             />
             <Note>
-              The game respects your operating system's reduced-motion preference as a default and
+              The game respects your operating system&apos;s reduced-motion preference as a default and
               keeps touch targets at least 44px tall.
             </Note>
           </Section>
@@ -744,7 +1002,7 @@ export default function SettingsPage() {
                 <PanelLabel>Privacy</PanelLabel>
                 <p style={{ marginTop: 6 }}>
                   No account, analytics or remote database. Progress, settings, scores and trophies
-                  live in your browser's local storage under <code>highway-rush-save-v2</code>.
+                  live in your browser&apos;s local storage under <code>highway-rush-save-v2</code>.
                 </p>
               </div>
             </About>

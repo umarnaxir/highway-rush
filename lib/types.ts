@@ -3,6 +3,8 @@ export type GraphicsPreset = 'low' | 'medium' | 'high' | 'custom';
 export type Quality = 'low' | 'medium' | 'high';
 export type SpeedUnit = 'kmh' | 'mph';
 export type ControlScheme = 'keyboard' | 'touch' | 'gamepad';
+/** How the player actually steers. 'auto' picks the best available input per device. */
+export type ControlMethod = 'auto' | 'tilt' | 'buttons' | 'drag' | 'keyboard' | 'gamepad';
 export type SpoilerStyle = 'none' | 'lip' | 'sport' | 'gt';
 export type WheelStyle = 'sport' | 'forged' | 'stealth';
 export type DecalStyle = 'none' | 'stripe' | 'racing' | 'flames';
@@ -38,6 +40,14 @@ export interface Settings {
     sensitivity: number;
     invertCamera: boolean;
     scheme: ControlScheme;
+    method: ControlMethod;
+    tilt: {
+      sensitivity: number;
+      deadZone: number;
+      smoothing: number;
+      maxSteer: number;
+      reverse: boolean;
+    };
     keybindings: Record<ControlAction, string>;
   };
   gameplay: {
@@ -64,6 +74,10 @@ export interface CarStats {
 }
 
 export type CarClass = 'sport' | 'muscle' | 'super' | 'hyper' | 'offroad' | 'electric';
+export type CarBodyStyle = 'coupe' | 'supercar' | 'sedan' | 'suv' | 'muscle' | 'hatch';
+export type UpgradeKey = 'engine' | 'tyres' | 'brakes' | 'nitro';
+export type CarUpgrades = Record<UpgradeKey, number>;
+export type EngineProfile = 'flat-six' | 'v8-crossplane' | 'v8-flatplane' | 'v10' | 'v12' | 'inline-six' | 'electric' | 'offroad-v8';
 
 export interface CarRequirement {
   races?: number;
@@ -71,11 +85,26 @@ export interface CarRequirement {
   trophies?: number;
 }
 
+/**
+ * Vehicle art metadata. Every model currently ships as a hand-built procedural
+ * Three.js studio model; `assetUrl` is the drop-in point for a verified,
+ * licensed GLB without pretending an unlicensed scan is present.
+ */
+export interface CarAsset {
+  kind: 'procedural' | 'glb';
+  assetUrl?: string;
+  licence: string;
+  credit: string;
+  note: string;
+}
+
 export interface CarDefinition {
   id: string;
   name: string;
   brand: string;
   className: CarClass;
+  bodyStyle: CarBodyStyle;
+  engineProfile: EngineProfile;
   tagline: string;
   description: string;
   price: number;
@@ -84,6 +113,10 @@ export interface CarDefinition {
   defaultPaint: string;
   requirement?: CarRequirement;
   accent: string;
+  powerHp: number;
+  drivetrain: string;
+  gearbox: string;
+  asset: CarAsset;
 }
 
 export interface CarCustomization {
@@ -93,6 +126,8 @@ export interface CarCustomization {
   wheels: WheelStyle;
   decal: DecalStyle;
   underglow: string | null;
+  /** Optional so saves created before the upgrade system remain valid. */
+  upgrades?: CarUpgrades;
 }
 
 export type EnvironmentType =
@@ -139,6 +174,11 @@ export interface DestinationDefinition {
   music: 'sunrise' | 'night' | 'desert' | 'coast' | 'frost' | 'forest' | 'neon';
   theme: DestinationEnvironment;
   previewColor: string;
+  surface: string;
+  visibility: string;
+  signature: string[];
+  hazards: string;
+  bestLine: string;
 }
 
 export interface Statistics {

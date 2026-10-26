@@ -482,11 +482,12 @@ export default function CreditsPage() {
               </div>
             </CardHead>
             <Note>
-              Seven destinations — Mountain Highway, City Night, Desert Highway, Coastal Road, Snowy
-              Mountain Pass, Forest Highway and Neon City — each carry their own sky, weather,
-              lighting, road furniture and soundtrack. Eight cars span sport, muscle, super, hyper,
-              offroad and electric classes, with per-car paint, rims, wheels, spoilers, decals and
-              underglow saved in your garage.
+              Eight destinations — Kashmir Mountain Pass, Alpine Highway, Dubai Night Drive, Desert
+              Expressway, Coastal Highway, Snow Valley, Forest Route and Tokyo Neon Streets — each
+              carry their own sky, weather, lighting, road furniture and soundtrack. Fourteen
+              real-world-inspired machines span coupe, supercar, saloon, SUV, muscle and electric
+              silhouettes, with per-car paint, rims, wheels, spoilers, decals and underglow saved in
+              your garage.
             </Note>
           </Card>
 
@@ -504,8 +505,12 @@ export default function CreditsPage() {
               licences. Thanks also to every player who keeps chasing one more kilometre.
             </Note>
             <Note style={{ marginTop: 12 }}>
-              Highway Rush is a fictional arcade experience. Vehicle names, brands and route names
-              are original to the game. Any resemblance to real products is coincidental.
+              Highway Rush is an independent, fictional arcade experience. Vehicle and route names
+              are used as real-world-inspired references; manufacturer trademarks belong to their
+              respective owners. The game is not affiliated with or endorsed by any vehicle
+              manufacturer. All vehicle geometry, environments and audio are original procedural
+              work produced for this project. No licensed OEM model, location scan or sample pack is
+              bundled.
             </Note>
           </Card>
 
@@ -520,8 +525,8 @@ export default function CreditsPage() {
             <Note>
               <strong style={{ color: 'var(--text)' }}>Highway Rush</strong> is a free 3D endless
               highway racer for the browser. Thread traffic, chain near misses, manage fuel, health
-              and nitro, and unlock seven routes and eight cars. Built by Umar Nazir with Next.js and
-              Three.js.
+              and nitro, and unlock eight routes and fourteen machines. Built by Umar Nazir with
+              Next.js and Three.js.
             </Note>
             <Stack style={{ marginTop: 16 }}>
               <Badge $tone="lime">Free to play</Badge>

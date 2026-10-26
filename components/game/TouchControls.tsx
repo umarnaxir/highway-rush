@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import styled, { css } from 'styled-components';
-import { ChevronLeft, ChevronRight, ChevronsDown, ChevronsUp, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsDown, ChevronsUp, Smartphone, Zap } from 'lucide-react';
 import { media } from '@/lib/ui/theme';
 
 type VirtualAction = 'steerLeft' | 'steerRight' | 'accelerate' | 'brake' | 'nitro';
@@ -10,6 +10,9 @@ type VirtualAction = 'steerLeft' | 'steerRight' | 'accelerate' | 'brake' | 'nitr
 interface TouchControlsProps {
   onControl: (action: VirtualAction, active: boolean) => void;
   active: boolean;
+  /** Tilt and drag modes keep throttle/brake/nitro but hide steering keys. */
+  showSteering?: boolean;
+  steeringLabel?: string;
 }
 
 const Root = styled.div<{ $active: boolean }>`
@@ -45,6 +48,30 @@ const Stack = styled.div`
   flex-direction: column;
   gap: 8px;
   pointer-events: none;
+`;
+
+const SteeringHint = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  align-self: flex-end;
+  margin-bottom: 8px;
+  padding: 8px 11px;
+  border: 1px solid rgba(215, 255, 63, 0.24);
+  border-radius: 999px;
+  background: rgba(7, 10, 13, 0.58);
+  color: var(--lime);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  pointer-events: none;
+  backdrop-filter: blur(10px);
+
+  svg {
+    width: 13px;
+    height: 13px;
+  }
 `;
 
 const Key = styled.button<{
@@ -275,25 +302,36 @@ function HoldKey({
  * the engine's virtual input channel and releases on pointer cancellation, so
  * inputs cannot remain stuck when a thumb slides off the glass.
  */
-export function TouchControls({ onControl, active }: TouchControlsProps) {
+export function TouchControls({
+  onControl,
+  active,
+  showSteering = true,
+  steeringLabel,
+}: TouchControlsProps) {
   return (
     <Root $active={active} aria-hidden={!active}>
-      <Cluster>
-        <HoldKey
-          action="steerLeft"
-          label="Left"
-          icon={<ChevronLeft />}
-          size="lg"
-          onControl={onControl}
-        />
-        <HoldKey
-          action="steerRight"
-          label="Right"
-          icon={<ChevronRight />}
-          size="lg"
-          onControl={onControl}
-        />
-      </Cluster>
+      {showSteering ? (
+        <Cluster>
+          <HoldKey
+            action="steerLeft"
+            label="Left"
+            icon={<ChevronLeft />}
+            size="lg"
+            onControl={onControl}
+          />
+          <HoldKey
+            action="steerRight"
+            label="Right"
+            icon={<ChevronRight />}
+            size="lg"
+            onControl={onControl}
+          />
+        </Cluster>
+      ) : (
+        <SteeringHint>
+          <Smartphone /> {steeringLabel ?? 'Tilt to steer'}
+        </SteeringHint>
+      )}
       <Cluster>
         <Stack>
           <HoldKey

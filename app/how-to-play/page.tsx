@@ -373,8 +373,15 @@ export default function HowToPlayPage() {
               </div>
             </CardHead>
             <Text>
-              On touch devices a left/right steering pad, brake paddle and nitro button appear over
-              the road. Tap-and-hold to steer, release to centre. Gamepads are detected
+              Pick a steering method in Settings: <b>Auto</b>, <b>Tilt</b>, <b>Touch buttons</b>,{' '}
+              <b>Touch drag</b>, <b>Keyboard</b> or <b>Gamepad</b>. Auto uses the gyroscope when the
+              device has one and falls back to buttons if motion access is unavailable.
+            </Text>
+            <Text style={{ marginTop: 10 }}>
+              Tilt steering asks for motion access only when you start a race or tap <b>Test sensor</b>.
+              Hold the phone comfortably, steer by tilting, and tap <b>Re-centre</b> in the HUD to set
+              a new neutral angle. Touch drag turns the whole road surface into a steering pad. Touch
+              buttons use a left/right pad, brake paddle and nitro button. Gamepads are detected
               automatically.
             </Text>
             <div style={{ marginTop: 14 }}>
@@ -534,7 +541,7 @@ export default function HowToPlayPage() {
         <TipGrid>
           <Tip>
             <Target size={17} />
-            <strong>Steer, don't snap</strong>
+            <strong>Steer, don&apos;t snap</strong>
             <p>Hold a line instead of tapping. Smooth inputs preserve speed and let the drift model work.</p>
           </Tip>
           <Tip>

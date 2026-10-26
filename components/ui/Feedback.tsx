@@ -1,6 +1,7 @@
 'use client';
 
 import styled from 'styled-components';
+import { motion } from 'motion/react';
 import { Loader2 } from 'lucide-react';
 
 const Wrap = styled.div<{ $minHeight?: string }>`
@@ -25,12 +26,21 @@ const Wrap = styled.div<{ $minHeight?: string }>`
   }
 `;
 
+const MotionWrap = motion.create(Wrap);
+
 export function PageLoader({ label = 'Loading', minHeight }: { label?: string; minHeight?: string }) {
   return (
-    <Wrap $minHeight={minHeight} role="status" aria-live="polite">
+    <MotionWrap
+      $minHeight={minHeight}
+      role="status"
+      aria-live="polite"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+    >
       <Loader2 size={26} />
       <span>{label}</span>
-    </Wrap>
+    </MotionWrap>
   );
 }
 

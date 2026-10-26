@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import styled from 'styled-components';
+import { motion } from 'motion/react';
 import { Award, Check, Coins, Crown, Lock, Medal, Sparkles, Trophy } from 'lucide-react';
 import { PageShell } from '@/components/layout/PageShell';
 import { Badge, Panel, PanelLabel, ProgressBar, SectionKicker } from '@/components/ui/Panel';
@@ -169,6 +170,8 @@ const Card = styled(Panel)<{ $unlocked: boolean; $tierColor: string }>`
     );
   }
 `;
+
+const MotionCard = motion.create(Card);
 
 const CardTop = styled.div`
   display: flex;
@@ -344,7 +347,13 @@ export default function TrophiesPage() {
           const progress = trophyProgress(trophy, stats, extras);
           const percent = trophy.target > 0 ? Math.min(100, (progress / trophy.target) * 100) : 0;
           return (
-            <Card key={trophy.id} $unlocked={isUnlocked} $tierColor={meta.color}>
+            <MotionCard
+              key={trophy.id}
+              $unlocked={isUnlocked}
+              $tierColor={meta.color}
+              whileHover={{ y: -3 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+            >
               <CardTop>
                 <TierIcon $color={meta.color} $unlocked={isUnlocked}>
                   {isUnlocked ? <Check size={17} /> : <Lock size={15} />}
@@ -373,7 +382,7 @@ export default function TrophiesPage() {
                   <span>{isUnlocked ? `Earned ${formatDate(unlocked[trophy.id])}` : 'In progress'}</span>
                 </BottomLine>
               </CardFoot>
-            </Card>
+            </MotionCard>
           );
         })}
       </Grid>

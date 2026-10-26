@@ -203,6 +203,7 @@ export class PreviewEngine {
       paint: this.customization.paint,
       customization: this.customization,
       carClass: this.car.className,
+      bodyStyle: this.car.bodyStyle,
       accent: this.car.accent,
       quality: this.quality,
       isPlayer: true,

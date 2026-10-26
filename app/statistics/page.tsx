@@ -497,7 +497,7 @@ export default function StatisticsPage() {
         <div>
           <PanelLabel>Data storage</PanelLabel>
           <p style={{ marginTop: 6, color: 'var(--text-muted)', fontSize: 11 }}>
-            Statistics are stored in your browser's local storage. Clearing site data will erase
+            Statistics are stored in your browser&apos;s local storage. Clearing site data will erase
             progress permanently.
           </p>
         </div>

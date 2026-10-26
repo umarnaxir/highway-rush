@@ -1,28 +1,26 @@
 # Highway Rush — Endless Drive
 
-A premium 3D endless highway racer built with **Next.js App Router**, **TypeScript**, **React**, **Three.js**, **styled-components**, and **Zustand**.
-
-Thread traffic across seven distinct destinations, chain near misses, fire nitro, upgrade an eight-car garage, and chase local records. The entire game runs in the browser — no backend, database, or API keys required.
+A premium, mobile-first 3D arcade racer built with **Next.js App Router**, **TypeScript**, **React 19**, **Three.js**, **styled-components**, **Zustand** and **Motion**. Thread traffic across eight fictional destinations, chain near misses, fire nitro, build a fourteen-car garage, and chase local records. Everything runs in the browser — there is no backend, database, account system, or API key.
 
 **Built by Umar Nazir.**
 
 ## Highlights
 
-- **Real 3D racing** — procedural highway, traffic, scenery, lighting, and vehicle models rendered with Three.js.
-- **Free continuous steering** — analog-style steering with drifting, collisions, damage, fuel, nitro, gears, RPM, and checkpoints every 700 m.
-- **Seven destinations** — Mountain Highway, City Night, Desert Highway, Coastal Road, Snowy Mountain Pass, Forest Highway, and Neon City, each with its own palette, weather, traffic, and layout.
-- **Eight-car garage** — rotate and inspect each car in 3D; paint, rims, wheels, spoilers, decals, and underglow with persistent saves.
-- **Progression** — 32 trophies across Bronze/Silver/Gold/Platinum, long-term missions, daily missions, statistics, and a local leaderboard.
-- **Complete settings** — graphics, audio, controls, gameplay, and accessibility options, including key rebinding, UI scale, reduced motion, and performance mode.
-- **Procedural audio** — engine, tire, wind, ambience, music, and UI cues synthesized with the Web Audio API. No audio files to load or break.
-- **Input coverage** — keyboard, touch, and gamepad support with pause, restart, countdown, and results flows.
-- **Production-ready UI** — dark charcoal/electric-lime racing theme, responsive layouts, animated feedback, and accessible touch targets.
+- **Real 3D racing** — procedural highways, traffic, scenery, lighting and vehicles rendered with Three.js.
+- **Eight destinations** — Kashmir Mountain Pass, Alpine Highway, Dubai Night Drive, Desert Expressway, Coastal Highway, Snow Valley, Forest Route and Tokyo Neon Streets. Each has its own palette, weather, surface, visibility, hazards, traffic mix and procedural soundtrack.
+- **Fourteen-car garage** — coupe, supercar, saloon, SUV, muscle and electric silhouettes inspired by modern performance machines. Rotate every car in a live 3D studio, then fit paint, rims, wheels, spoilers, decals, underglow and performance upgrades.
+- **Multiple steering methods** — Auto, gyroscope tilt, touch buttons, touch drag, keyboard and gamepad, all persisted locally. Tilt steering includes permission gating, calibration, dead zone, sensitivity, smoothing, maximum angle and a reverse direction option.
+- **Progression** — cars, routes, four upgrade trees, 32 trophies, daily and long-term missions, lifetime statistics and a local leaderboard.
+- **Procedural audio** — engine profiles tied to RPM, throttle, speed and gear, plus tyre slip, nitro, impacts, near misses, ambience, music and interface cues synthesized with the Web Audio API.
+- **Responsive by design** — full-screen racing, translucent HUD, safe-area support, swipeable car and route carousels, a fixed mobile bottom navigation bar, and spacious desktop layouts.
+- **Accessible feedback** — keyboard and gamepad support, visible focus states, reduced-motion support, adjustable UI scale, graphics presets and performance mode.
 
 ## Requirements
 
 - Node.js **20.9+**
 - npm 10+
-- A modern browser with WebGL 2 and Web Audio support
+- A modern browser with **WebGL 2** and **Web Audio**
+- A secure context (**HTTPS or localhost**) for motion sensors on iOS and modern browsers
 
 ## Getting Started
 
@@ -33,34 +31,44 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Scripts
+### Production
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start the Next.js development server |
-| `npm run build` | Create an optimized production build |
-| `npm run start` | Serve the production build |
-| `npm run typecheck` | Run the TypeScript compiler with no emit |
+```bash
+npm run build
+npm run start
+```
+
+### Quality checks
+
+```bash
+npm run typecheck   # TypeScript, no emit
+npm run lint        # ESLint flat config
+npm run build       # Production build and type check
+```
 
 ## Routes
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Main menu, featured destination, progress snapshot |
-| `/play` | Race setup: destination, car, difficulty, race/endless mode |
-| `/garage` | 3D car viewer, purchases, customization, stat comparison |
-| `/destinations` | Route gallery, unlock requirements, records |
-| `/missions` | Daily and long-term mission tracking |
+| `/` | Main menu, active car, featured destination and progress snapshot |
+| `/play` | Race setup: destination, car, difficulty, race or endless mode |
+| `/garage` | 3D viewer, purchases, visual customization and performance upgrades |
+| `/destinations` | Route carousel, unlock requirements, surface briefings and records |
+| `/missions` | Daily and long-term objectives |
 | `/trophies` | Trophy cabinet with progress and rewards |
 | `/statistics` | Lifetime driving statistics and recent runs |
-| `/settings` | Graphics, audio, controls, gameplay, accessibility |
-| `/how-to-play` | Controls, scoring, race rules |
+| `/settings` | Graphics, audio, steering, gameplay, accessibility and save data |
+| `/how-to-play` | Controls, scoring, race rules and systems |
 | `/leaderboard` | Local run leaderboard |
-| `/credits` | Production credits and project notes |
+| `/credits` | Credits, asset notes and project details |
+
+The fixed mobile navigation links to **Home**, **Garage**, **Drive**, **Rewards** and **Settings**; Rewards points to missions. Active route state is shown with both colour and `aria-current`.
 
 ## Controls
 
-Default keyboard bindings (all can be remapped in **Settings → Controls**):
+### Keyboard
+
+Default bindings, all remappable in **Settings → Controls**:
 
 | Action | Default |
 | --- | --- |
@@ -71,9 +79,22 @@ Default keyboard bindings (all can be remapped in **Settings → Controls**):
 | Nitro | `Space` |
 | Pause | `Escape` |
 
-- **Touch:** on-screen steering, throttle, brake, and nitro controls appear during a race.
-- **Gamepad:** left stick steers; triggers accelerate/brake; face/shoulder buttons fire nitro; `Start` pauses.
-- **Audio:** browsers require a user gesture before audio can start. Pressing **Start Race**, or interacting with the menu, unlocks the audio context.
+### Touch
+
+Choose a method in **Settings → Controls**:
+
+- **Auto** — uses tilt on supported sensor devices, with automatic button fallback if motion access is denied, unavailable or unsupported. Desktop and non-sensor devices use the standard controls.
+- **Tilt** — steer by rotating the device. The first reading is captured as neutral. Tap **Re-centre** in the HUD during a race to set a new neutral angle.
+- **Touch buttons** — hold the left/right steering pad; use the brake and nitro buttons.
+- **Touch drag** — drag horizontally anywhere in the steering layer to steer; release to roll back to centre.
+- **Keyboard** — useful on tablets with a keyboard attached.
+- **Gamepad** — left stick steers, triggers accelerate/brake, shoulder or face buttons fire nitro, and Start pauses.
+
+Tilt tuning lives in **Settings → Controls**: dead zone, sensitivity, smoothing, maximum angle, reverse direction and a live sensor readout. Motion permission is requested only from a user gesture such as **Start race** or **Test sensor** — never on page load. If the sensor is unavailable, unsupported or denied, the game explains why and falls back to touch buttons rather than leaving the player without steering.
+
+### Audio
+
+Browsers require a user gesture before audio can start. Pressing **Start race** or interacting with the menu unlocks the audio context. Engine, tyre, ambience, music, interface and gameplay buses have separate volume controls.
 
 ## Scoring
 
@@ -84,40 +105,71 @@ Default keyboard bindings (all can be remapped in **Settings → Controls**):
 - Finish bonus: **5000**
 - Drift: **4 points per metre**
 
-Runs end on finish, critical damage, empty fuel, or quitting. Rewards are paid once per run, and trophy progress updates both live and at the results screen.
+Runs end on finish, critical damage, empty fuel or quitting. Rewards are paid once per run, and trophy progress updates both live and at the results screen.
+
+## Garage and Upgrades
+
+The garage stores an independent build for every car:
+
+- paint, rim colour, wheel style, spoiler, decal and underglow
+- four performance trees — engine, tyres, brakes and nitro
+- three stages per tree, purchased with coins
+- effective stats feed directly into the Three.js race model
+- **Select this car** and **Race it** preserve the active car across reloads
+
+Upgrades are additive and optional in the persisted schema, so saves created before the upgrade system remain valid. The save key remains `highway-rush-save-v2`.
 
 ## Persistence
 
-All progress is stored locally in the browser under the `highway-rush-save-v2` key using Zustand's `persist` middleware. This includes settings, coins, owned cars, customization, unlocks, trophies, missions, statistics, and local run history.
+All progress is stored locally under the `highway-rush-save-v2` key using Zustand's `persist` middleware. This includes settings, coins, owned cars, customizations and upgrades, route unlocks, trophies, missions, statistics and recent run history.
 
 - No account or server is involved.
 - Clearing site data resets progress.
 - The leaderboard is explicitly local-only and does not represent global rankings.
+- Saves are per browser and per origin, so `localhost` and a deployed domain do not share progress.
 
-## Audio
+## Assets and Licensing
 
-`lib/audio/AudioManager.ts` synthesizes every sound at runtime:
+### Vehicles and destinations
 
-- layered oscillators for the engine, sub-bass, tire noise, and wind
-- filtered noise beds per destination for ambience
-- looping procedural music patterns per destination
-- short synthesized cues for UI, coins, near misses, crashes, nitro, and trophies
+Every vehicle and environment is **original procedural Three.js geometry** created for this project. The roster is styled after real-world performance cars for recognisability, and route names reference real-world driving archetypes, but the game is **not affiliated with, sponsored by or endorsed by any vehicle manufacturer**. Manufacturer and model names remain trademarks of their respective owners.
 
-The synthesized soundtrack is a functional, dependency-free placeholder and can be replaced with licensed tracks without changing game logic. Audio nodes, timers, and intervals are disposed when a race unmounts.
+No licensed OEM model, manufacturer CAD data, photogrammetry scan or real-location capture is bundled. The `CarAsset` metadata in `lib/data/cars.ts` records this honestly:
+
+```ts
+asset: {
+  kind: 'procedural',
+  licence: 'Original procedural asset',
+  credit: 'Highway Rush',
+  note: '...',
+}
+```
+
+The optional `kind: 'glb'` and `assetUrl` fields are the integration point for a future, verifiably licensed GLB/GLTF vehicle. No external model is claimed or silently substituted today.
+
+### Audio
+
+All sound is synthesized at runtime by `lib/audio/AudioManager.ts` using the Web Audio API. No commercial sample packs, streamed tracks or ripped game audio are bundled. This keeps the project dependency-free and honestly attributable. The procedural soundtrack can be replaced with licensed music and samples later without changing game logic.
+
+### Fonts and libraries
+
+- Inter, Manrope and Space Grotesk are bundled locally through `@fontsource-variable` (SIL Open Font License).
+- Next.js, React, Three.js, styled-components, Zustand, Motion and Lucide are used under their respective open-source licences.
 
 ## Architecture
 
 ```text
 app/                     Next.js App Router pages, layout, global styles
 components/
-  game/                  RaceStage, HUD, touch controls, preview canvas
-  layout/                NavBar, Footer, PageShell
-  providers/             Theme/styled-components, store hydration, global audio
-  ui/                    Reusable buttons, panels, modals, toasts, controls
+  game/                  RaceStage, HUD, touch controls, tilt feedback, preview canvas
+  layout/                NavBar, MobileBottomNav, Footer, PageShell
+  motion/                Route and reveal transition primitives
+  providers/             Theme, MotionConfig, store hydration, global audio
+  ui/                    Buttons, panels, modals, toasts, feedback, controls
 lib/
   audio/                 Procedural Web Audio manager
-  data/                  Cars, destinations, missions, trophies
-  game/                  Three.js engine, environment, car model, input, preview
+  data/                  Cars, upgrades, destinations, missions, trophies
+  game/                  Three.js engine, environment, car model, input, tilt, preview
   hooks/                 Menu audio lifecycle
   store/                 Zustand game and UI stores
   ui/                    Theme, formatting utilities, styled-components types
@@ -128,18 +180,29 @@ public/                  App icon
 
 - A single WebGL renderer and race loop are owned by `RaceStage` and disposed on unmount.
 - Graphics settings apply live where possible; antialiasing changes require a renderer rebuild.
-- Performance mode, render scale, shadow quality, and effects levels reduce GPU cost on lower-end devices.
-- Input listeners, audio timers, and animation frames are cleaned up to avoid duplicate loops.
+- Performance mode, render scale, shadow quality and effects levels reduce GPU cost on lower-end devices.
+- Input listeners, sensor listeners, audio timers and animation frames are cleaned up to avoid duplicate loops.
+- The race renderer is paused when the tab is hidden.
+
+## Accessibility
+
+- Reduced motion is respected through `MotionConfig reducedMotion="user"`, plus a global `prefers-reduced-motion` CSS fallback.
+- UI scale is adjustable.
+- All primary controls have visible focus states and keyboard equivalents.
+- The mobile navigation exposes `aria-current`; dialogs are labelled and portalled; live HUD updates use restrained announcements.
+- Tilt is optional. Every sensor path has a button, drag, keyboard or gamepad fallback.
 
 ## Deployment
 
 ### Vercel
 
-1. Push the repository to GitHub/GitLab/Bitbucket.
+1. Push the repository to GitHub, GitLab or Bitbucket.
 2. Import the project in Vercel.
 3. Keep the detected framework preset **Next.js**.
-4. Build command: `npm run build`. Output is handled automatically.
+4. Build command: `npm run build`; install command: `npm install`.
 5. No environment variables are required.
+
+Redeploy after changing assets or environment configuration. Motion sensors require **HTTPS** in production; Vercel provides this automatically.
 
 ### Other Node hosts
 
@@ -149,19 +212,21 @@ npm run build
 npm run start
 ```
 
-Serve the app over HTTPS. The game is fully client-side apart from Next.js page rendering, so any Node-compatible host works.
+Any Node-compatible host works. Serve over HTTPS so sensor permission and modern browser APIs remain available. The game is fully client-side apart from Next.js page rendering.
 
 ## Browser Notes
 
 - Audio starts only after a user gesture, by browser policy.
 - WebGL is required; unsupported devices see a graceful error state.
-- Touch controls are optimized for landscape play.
+- iOS requires an explicit motion-permission prompt triggered by a user gesture.
+- Touch controls are optimised for landscape play, but portrait is fully supported.
 - Progress is per-browser and per-origin.
+- Headless or GPU-blocked browsers may run the race slowly; the game waits for its own countdown rather than assuming wall-clock timing.
 
 ## Credits
 
-Design, development, and direction: **Umar Nazir**.
+Design, development and direction: **Umar Nazir**.
 
-Built with Next.js, React, TypeScript, Three.js, styled-components, Zustand, and Lucide.
+Built with Next.js, React, TypeScript, Three.js, styled-components, Zustand, Motion and Lucide.
 
 **Built by Umar Nazir.**

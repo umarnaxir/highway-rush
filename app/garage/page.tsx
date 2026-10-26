@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import styled from 'styled-components';
+import { motion } from 'motion/react';
 import {
   Car,
   Check,
@@ -22,17 +23,29 @@ import { PreviewCanvas } from '@/components/game/PreviewCanvas';
 import {
   CARS,
   CARS_BY_ID,
+  MAX_UPGRADE_LEVEL,
   RIM_COLORS,
   UNDERGLOW_COLORS,
+  UPGRADE_DEFS,
   carStatsTotal,
+  effectiveCarStats,
   getDefaultCustomization,
+  getUpgradeCost,
+  getUpgrades,
   meetsCarRequirement,
+  totalUpgradeLevel,
 } from '@/lib/data/cars';
 import { useGameStore } from '@/lib/store/useGameStore';
 import { getAudioManager } from '@/lib/audio/AudioManager';
 import { useUiStore } from '@/lib/store/useUiStore';
 import { formatNumber, titleCase } from '@/lib/ui/format';
-import type { CarCustomization, DecalStyle, SpoilerStyle, WheelStyle } from '@/lib/types';
+import type {
+  CarCustomization,
+  DecalStyle,
+  SpoilerStyle,
+  UpgradeKey,
+  WheelStyle,
+} from '@/lib/types';
 import { media } from '@/lib/ui/theme';
 
 const stages = [
@@ -183,6 +196,51 @@ const TagRow = styled.div`
   margin-top: 14px;
 `;
 
+const SpecLedger = styled.dl`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 18px 0 0;
+  border: 1px solid var(--line);
+  background: var(--line);
+  overflow: hidden;
+
+  div {
+    min-width: 0;
+    padding: 10px 11px;
+    background: var(--panel);
+  }
+
+  dt {
+    color: var(--text-dim);
+    font-size: 7px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  dd {
+    margin: 5px 0 0;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+`;
+
+const AssetNote = styled.p`
+  margin: 12px 0 0;
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1.65;
+
+  strong {
+    color: var(--text-muted);
+    font-weight: 700;
+  }
+`;
+
 const Customizer = styled(Panel)`
   margin-top: 16px;
   padding: clamp(20px, 3vw, 30px);
@@ -270,6 +328,93 @@ const PillRow = styled.div`
   gap: 6px;
 `;
 
+const UpgradeStack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+`;
+
+const UpgradeRow = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.018);
+
+  strong {
+    display: block;
+    color: var(--text);
+    font-size: 10px;
+    letter-spacing: 0.03em;
+  }
+
+  span {
+    display: block;
+    margin-top: 2px;
+    color: var(--text-dim);
+    font-size: 8px;
+    line-height: 1.45;
+  }
+`;
+
+const UpgradeDots = styled.div`
+  display: flex;
+  gap: 3px;
+  margin-top: 6px;
+
+  i {
+    width: 16px;
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  i[data-on='true'] {
+    background: var(--lime);
+    box-shadow: 0 0 8px rgba(215, 255, 63, 0.3);
+  }
+`;
+
+const UpgradeButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 92px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(215, 255, 63, 0.35);
+  border-radius: 3px;
+  background: rgba(215, 255, 63, 0.07);
+  color: var(--lime);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(215, 255, 63, 0.14);
+    border-color: rgba(215, 255, 63, 0.6);
+  }
+
+  &:disabled {
+    color: var(--text-dim);
+    border-color: var(--line);
+    background: rgba(255, 255, 255, 0.02);
+    cursor: not-allowed;
+  }
+`;
+
+const UpgradeNote = styled.p`
+  margin: 10px 0 0;
+  color: var(--text-dim);
+  font-size: 8px;
+  line-height: 1.6;
+`;
+
 const Pill = styled.button<{ $active: boolean }>`
   min-height: 31px;
   padding: 0 12px;
@@ -298,8 +443,25 @@ const Roster = styled.div`
   ${media.desktop} {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  ${media.mobile} {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  ${media.tablet} {
+    display: flex;
+    gap: 10px;
+    margin-inline: calc(-1 * clamp(16px, 3vw, 36px));
+    padding: 2px clamp(16px, 3vw, 36px) 10px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    > * {
+      flex: 0 0 min(72vw, 250px);
+      scroll-snap-align: start;
+    }
   }
 `;
 
@@ -348,6 +510,8 @@ const CarCard = styled.button<{ $active: boolean; $owned: boolean }>`
     filter: blur(10px);
   }
 `;
+
+const MotionCarCard = motion.create(CarCard);
 
 const CardTop = styled.div`
   display: flex;
@@ -423,6 +587,7 @@ export default function GaragePage() {
   const selectCar = useGameStore((state) => state.selectCar);
   const purchaseCar = useGameStore((state) => state.purchaseCar);
   const updateCustomization = useGameStore((state) => state.updateCustomization);
+  const purchaseUpgrade = useGameStore((state) => state.purchaseUpgrade);
   const recordCustomization = useGameStore((state) => state.recordCustomization);
   const pushToast = useUiStore((state) => state.pushToast);
 
@@ -431,6 +596,8 @@ export default function GaragePage() {
 
   const car = CARS_BY_ID[browsedId] ?? CARS[0];
   const customization = customizations[car.id] ?? getDefaultCustomization(car);
+  const upgrades = getUpgrades(customization);
+  const effectiveStats = effectiveCarStats(car, customization);
   const owned = ownedCars.includes(car.id);
   const trophyCount = Object.keys(unlockedTrophies).length;
   const requirement = useMemo(
@@ -464,6 +631,16 @@ export default function GaragePage() {
       setBrowsedId(car.id);
       getAudioManager().playCue('purchase');
     }
+  };
+
+  const handleUpgrade = (key: UpgradeKey) => {
+    const result = purchaseUpgrade(car.id, key);
+    pushToast({
+      kind: result.ok ? 'success' : 'error',
+      title: result.ok ? 'Upgrade fitted' : 'Upgrade unavailable',
+      message: result.message,
+    });
+    if (result.ok) getAudioManager().playCue('purchase');
   };
 
   return (
@@ -704,6 +881,61 @@ export default function GaragePage() {
                     ))}
                   </PillRow>
                 </Group>
+
+                <Group>
+                  <GroupLabel>
+                    <Wrench size={12} /> Performance upgrades
+                  </GroupLabel>
+                  <UpgradeStack>
+                    {UPGRADE_DEFS.map((upgrade) => {
+                      const level = upgrades[upgrade.key];
+                      const maxed = level >= MAX_UPGRADE_LEVEL;
+                      const cost = getUpgradeCost(car, upgrade.key, level);
+                      return (
+                        <UpgradeRow key={upgrade.key}>
+                          <div>
+                            <strong>{upgrade.label}</strong>
+                            <span>{upgrade.description}</span>
+                            <UpgradeDots
+                              role="img"
+                              aria-label={`${level} of ${MAX_UPGRADE_LEVEL} stages fitted`}
+                            >
+                              {Array.from({ length: MAX_UPGRADE_LEVEL }, (_, index) => (
+                                <i key={index} data-on={index < level} />
+                              ))}
+                            </UpgradeDots>
+                          </div>
+                          <UpgradeButton
+                            type="button"
+                            disabled={!owned || maxed || cost === null || coins < cost}
+                            onClick={() => handleUpgrade(upgrade.key)}
+                            aria-label={
+                              maxed
+                                ? `${upgrade.label} maxed`
+                                : owned
+                                  ? `Fit ${upgrade.label} stage ${level + 1} for ${formatNumber(cost ?? 0)} coins`
+                                  : `Buy this car before fitting ${upgrade.label}`
+                            }
+                          >
+                            {maxed ? (
+                              'Maxed'
+                            ) : !owned ? (
+                              'Locked'
+                            ) : (
+                              <>
+                                <Coins size={10} /> {formatNumber(cost ?? 0)}
+                              </>
+                            )}
+                          </UpgradeButton>
+                        </UpgradeRow>
+                      );
+                    })}
+                  </UpgradeStack>
+                  <UpgradeNote>
+                    Stages are saved with this build and feed straight into the race physics. Buy
+                    the car first to fit parts.
+                  </UpgradeNote>
+                </Group>
               </div>
             </CustomGrid>
           </Customizer>
@@ -727,17 +959,49 @@ export default function GaragePage() {
             {car.description}
           </p>
           <TagRow>
-            <Badge $tone="lime">OVR {carStatsTotal(car)}</Badge>
+            <Badge $tone="lime">OVR {carStatsTotal(car, customization)}</Badge>
             <Badge>{car.brand}</Badge>
             <Badge>{titleCase(car.className)}</Badge>
+            <Badge>{car.powerHp} hp</Badge>
           </TagRow>
+
+          <SpecLedger aria-label={`${car.name} mechanical specification`}>
+            <div>
+              <dt>Power</dt>
+              <dd>{car.powerHp} hp</dd>
+            </div>
+            <div>
+              <dt>Drivetrain</dt>
+              <dd>{car.drivetrain}</dd>
+            </div>
+            <div>
+              <dt>Gearbox</dt>
+              <dd>{car.gearbox}</dd>
+            </div>
+            <div>
+              <dt>Silhouette</dt>
+              <dd>{titleCase(car.bodyStyle)}</dd>
+            </div>
+            <div>
+              <dt>Engine note</dt>
+              <dd>{titleCase(car.engineProfile.replaceAll('-', ' '))}</dd>
+            </div>
+            <div>
+              <dt>Asset</dt>
+              <dd>{car.asset.kind === 'glb' ? 'Licensed GLB' : 'Procedural'}</dd>
+            </div>
+          </SpecLedger>
+          <AssetNote>
+            <strong>{car.asset.licence}.</strong> {car.asset.note}{' '}
+            {car.asset.assetUrl ? 'Verified asset path configured.' : 'No external model is bundled.'}
+          </AssetNote>
 
           <StatBars>
             {stages.map((stage) => (
               <StatBar key={stage.key}>
                 <span>{stage.label}</span>
-                <ProgressBar value={car.stats[stage.key]} color={car.accent} height={4} />
-                <b>{car.stats[stage.key]}</b>
+                <ProgressBar value={effectiveStats[stage.key]} color={car.accent} height={4} />
+                <b>{effectiveStats[stage.key]}</b>
               </StatBar>
             ))}
           </StatBars>
@@ -803,7 +1067,11 @@ export default function GaragePage() {
             </StatRow>
             <StatRow>
               <span>Upgrade count</span>
-              <strong>{owned ? 'Visual only' : '—'}</strong>
+              <strong>
+                {owned
+                  ? `${totalUpgradeLevel(customization)} / ${UPGRADE_DEFS.length * MAX_UPGRADE_LEVEL}`
+                  : '—'}
+              </strong>
             </StatRow>
           </div>
         </InfoPanel>
@@ -825,13 +1093,16 @@ export default function GaragePage() {
           {CARS.map((item) => {
             const isOwned = ownedCars.includes(item.id);
             return (
-              <CarCard
+              <MotionCarCard
                 key={item.id}
                 $active={item.id === car.id}
                 $owned={isOwned}
                 style={{ ['--accent' as string]: item.accent }}
                 onClick={() => changeCar(item.id)}
                 aria-pressed={item.id === car.id}
+                whileHover={{ y: -3 }}
+                whileTap={{ scale: 0.985 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 30 }}
               >
                 <CardTop>
                   <span>{item.brand}</span>
@@ -839,10 +1110,10 @@ export default function GaragePage() {
                 </CardTop>
                 <CardName>{item.name}</CardName>
                 <CardMeta>
-                  <span>OVR {carStatsTotal(item)}</span>
+                  <span>OVR {carStatsTotal(item, customizations[item.id])}</span>
                   <span>{isOwned ? 'Owned' : `${formatNumber(item.price)} c`}</span>
                 </CardMeta>
-              </CarCard>
+              </MotionCarCard>
             );
           })}
         </Roster>

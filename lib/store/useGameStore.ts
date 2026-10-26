@@ -6,7 +6,10 @@ import {
   DEFAULT_CUSTOMIZATION,
   CARS,
   CARS_BY_ID,
+  MAX_UPGRADE_LEVEL,
   getDefaultCustomization,
+  getUpgradeCost,
+  getUpgrades,
   meetsCarRequirement,
 } from '@/lib/data/cars';
 import {
@@ -26,6 +29,7 @@ import type {
   Settings,
   Statistics,
   TrophyDefinition,
+  UpgradeKey,
 } from '@/lib/types';
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -51,6 +55,14 @@ export const DEFAULT_SETTINGS: Settings = {
     sensitivity: 1,
     invertCamera: false,
     scheme: 'keyboard',
+    method: 'auto',
+    tilt: {
+      sensitivity: 1,
+      deadZone: 0.08,
+      smoothing: 0.18,
+      maxSteer: 30,
+      reverse: false,
+    },
     keybindings: {
       steerLeft: 'ArrowLeft',
       steerRight: 'ArrowRight',
@@ -143,6 +155,7 @@ interface GameStore {
   purchaseDestination: (destinationId: string) => PurchaseResult;
   selectDestination: (destinationId: string) => void;
   updateCustomization: (carId: string, patch: Partial<CarCustomization>) => void;
+  purchaseUpgrade: (carId: string, key: UpgradeKey) => PurchaseResult;
   recordCustomization: () => void;
   addRunResult: (result: RunResult) => RunRewards;
   evaluateLiveTrophies: (live: LiveRunStats) => TrophyDefinition[];
@@ -197,6 +210,10 @@ function normalizeSettings(settings: Partial<Settings> | undefined): Settings {
     controls: {
       ...DEFAULT_SETTINGS.controls,
       ...settings?.controls,
+      tilt: {
+        ...DEFAULT_SETTINGS.controls.tilt,
+        ...settings?.controls?.tilt,
+      },
       keybindings: {
         ...DEFAULT_SETTINGS.controls.keybindings,
         ...settings?.controls?.keybindings,
@@ -207,6 +224,12 @@ function normalizeSettings(settings: Partial<Settings> | undefined): Settings {
   };
   next.graphics.renderScale = Math.min(1, Math.max(0.5, next.graphics.renderScale));
   next.controls.sensitivity = Math.min(2, Math.max(0.4, next.controls.sensitivity));
+  const methods = ['auto', 'tilt', 'buttons', 'drag', 'keyboard', 'gamepad'];
+  if (!methods.includes(next.controls.method)) next.controls.method = 'auto';
+  next.controls.tilt.sensitivity = Math.min(2, Math.max(0.4, next.controls.tilt.sensitivity));
+  next.controls.tilt.deadZone = Math.min(0.3, Math.max(0, next.controls.tilt.deadZone));
+  next.controls.tilt.smoothing = Math.min(0.85, Math.max(0.02, next.controls.tilt.smoothing));
+  next.controls.tilt.maxSteer = Math.min(55, Math.max(12, next.controls.tilt.maxSteer));
   next.gameplay.cameraDistance = Math.min(1.6, Math.max(0.6, next.gameplay.cameraDistance));
   next.gameplay.fov = Math.min(85, Math.max(55, next.gameplay.fov));
   next.accessibility.uiScale = Math.min(1.2, Math.max(0.85, next.accessibility.uiScale));
@@ -409,6 +432,47 @@ export const useGameStore = create<GameStore>()(
             },
           };
         });
+      },
+
+      purchaseUpgrade: (carId, key) => {
+        const state = get();
+        const car = CARS_BY_ID[carId];
+        if (!car) return { ok: false, message: 'Unknown car.' };
+        if (!state.ownedCars.includes(carId)) {
+          return { ok: false, message: 'Purchase this car before fitting upgrades.' };
+        }
+        const base = state.customizations[carId] ?? getDefaultCustomization(car);
+        const upgrades = getUpgrades(base);
+        const level = upgrades[key];
+        if (level >= MAX_UPGRADE_LEVEL) {
+          return { ok: false, message: 'This upgrade is already at maximum stage.' };
+        }
+        const cost = getUpgradeCost(car, key, level);
+        if (cost === null) return { ok: false, message: 'This upgrade is unavailable.' };
+        if (state.coins < cost) {
+          return {
+            ok: false,
+            message: `You need ${(cost - state.coins).toLocaleString()} more coins.`,
+          };
+        }
+        set({
+          coins: state.coins - cost,
+          customizations: {
+            ...state.customizations,
+            [carId]: {
+              ...base,
+              upgrades: { ...upgrades, [key]: level + 1 },
+            },
+          },
+          stats: {
+            ...state.stats,
+            customizationChanges: state.stats.customizationChanges + 1,
+          },
+        });
+        return {
+          ok: true,
+          message: `${car.name} upgrade fitted · stage ${level + 1} of ${MAX_UPGRADE_LEVEL}.`,
+        };
       },
 
       recordCustomization: () => {
@@ -667,9 +731,13 @@ export const useGameStore = create<GameStore>()(
     }),
     {
       name: STORAGE_KEY,
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,
+      // Version 3 adds optional garage upgrades and fresh control settings.
+      // Both are additive, so legacy V1/V2 payloads can be carried forward and
+      // normalized by `merge` without discarding a player's progress.
+      migrate: (persisted) => persisted as GameStore,
       partialize: (state) => ({
         coins: state.coins,
         ownedCars: state.ownedCars,

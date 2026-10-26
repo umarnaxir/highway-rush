@@ -269,21 +269,14 @@ export const SectionHeader = styled.div`
 `;
 
 export const SectionKicker = styled.div`
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
   color: ${({ theme }) => theme.colors.lime};
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.24em;
   text-transform: uppercase;
   margin-bottom: 10px;
-  &::before {
-    content: '';
-    width: 26px;
-    height: 1px;
-    background: currentColor;
-  }
 `;
 
 export const SectionTitle = styled.h2`

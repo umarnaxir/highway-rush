@@ -39,6 +39,9 @@ import type { HighwayRushEngine } from '@/lib/game/engine';
 import type { RunRewards } from '@/lib/store/useGameStore';
 import { RaceHud, RaceHudFallback } from './RaceHud';
 import { TouchControls } from './TouchControls';
+import { DragSteerLayer } from './DragSteerLayer';
+import { TiltFeedback } from './TiltFeedback';
+import { requestTiltAccess, TiltController, type TiltReadout } from '@/lib/game/tilt';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { TROPHY_TIER_META } from '@/lib/data/trophies';
 import { useGameStore } from '@/lib/store/useGameStore';
@@ -220,16 +223,6 @@ const StartCard = styled.div`
   box-shadow: 0 40px 120px rgba(0, 0, 0, 0.62);
   text-align: center;
   animation: pageIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 12%;
-    right: 12%;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--lime), transparent);
-  }
 `;
 
 const StartKicker = styled.span`
@@ -515,21 +508,6 @@ const ResultHead = styled.div<{ $win: boolean }>`
       transparent 58%
     ),
     transparent;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 8%;
-    right: 8%;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      ${({ $win }) => ($win ? 'rgba(215,255,63,.7)' : 'rgba(255,93,93,.55)')},
-      transparent
-    );
-  }
 `;
 
 const ResultTop = styled.div`
@@ -984,8 +962,16 @@ export function RaceStage({
   const [needsStart, setNeedsStart] = useState(false);
   const [showGo, setShowGo] = useState(false);
   const [touch, setTouch] = useState(false);
+  const [tiltReadout, setTiltReadout] = useState<TiltReadout | null>(null);
+  const [tiltFallback, setTiltFallback] = useState(false);
+  const tiltRef = useRef<TiltController | null>(null);
+  const tiltUpdateRef = useRef(0);
 
   const speedUnit = settings.gameplay.speedUnit;
+  const controlMethod = settings.controls.method;
+  const tiltSelected = controlMethod === 'tilt';
+  const dragSelected = controlMethod === 'drag';
+  const tiltActive = tiltSelected && !tiltFallback;
 
   const pushFeed = useCallback((title: string, detail: string, tone: FeedItem['tone']) => {
     feedId.current += 1;
@@ -1122,6 +1108,47 @@ export function RaceStage({
   }, [settings.controls.scheme]);
 
   useEffect(() => {
+    if (!touch || !tiltSelected) {
+      setTiltReadout(null);
+      setTiltFallback(false);
+      return;
+    }
+    setTiltFallback(false);
+    const controller = new TiltController(settings.controls.tilt, (readout) => {
+      engineRef.current?.setAnalogSteer(readout.steer);
+      const now = performance.now();
+      if (now - tiltUpdateRef.current > 70) {
+        tiltUpdateRef.current = now;
+        setTiltReadout(readout);
+      }
+      if (
+        readout.status === 'denied' ||
+        readout.status === 'unsupported' ||
+        readout.status === 'error'
+      ) {
+        setTiltFallback(true);
+        engineRef.current?.setAnalogSteer(0);
+      }
+    });
+    tiltRef.current = controller;
+    void controller.start().then((status) => {
+      if (!mountedRef.current) return;
+      setTiltReadout(controller.getReadout());
+      if (status === 'active') {
+        controller.calibrate();
+        setTiltFallback(false);
+      } else {
+        setTiltFallback(true);
+      }
+    });
+    return () => {
+      controller.stop();
+      engineRef.current?.setAnalogSteer(0);
+      if (tiltRef.current === controller) tiltRef.current = null;
+    };
+  }, [touch, tiltSelected, settings.controls.tilt]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     let cancelled = false;
@@ -1192,7 +1219,6 @@ export function RaceStage({
       document.body.classList.remove('game-active');
     };
     // Engine is intentionally created once per selected run configuration.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destination, car, customization, settings, endless, autoStart]);
 
   const evaluateLive = useCallback(() => {
@@ -1236,9 +1262,24 @@ export function RaceStage({
   const startRun = useCallback(async () => {
     const audio = getAudioManager();
     await audio.unlock();
+    if (tiltSelected) {
+      const access = await requestTiltAccess();
+      if (access === 'granted' || access === 'active') {
+        const status = await tiltRef.current?.start();
+        if (status === 'active') {
+          tiltRef.current?.calibrate();
+          setTiltFallback(false);
+          setTiltReadout(tiltRef.current?.getReadout() ?? null);
+        } else {
+          setTiltFallback(true);
+        }
+      } else {
+        setTiltFallback(true);
+      }
+    }
     setNeedsStart(false);
     engineRef.current?.start(endless);
-  }, [endless]);
+  }, [endless, tiltSelected]);
 
   const restart = useCallback(() => {
     setResult(null);
@@ -1260,6 +1301,15 @@ export function RaceStage({
     [],
   );
 
+  const handleDragSteer = useCallback((value: number) => {
+    engineRef.current?.setAnalogSteer(value);
+  }, []);
+
+  const calibrateTilt = useCallback(() => {
+    tiltRef.current?.calibrate();
+    setTiltReadout(tiltRef.current?.getReadout() ?? null);
+  }, []);
+
   const allTrophies = useMemo(() => {
     const map = new Map<string, TrophyDefinition>();
     for (const trophy of [...liveTrophies, ...breakdownTrophies]) map.set(trophy.id, trophy);
@@ -1273,11 +1323,31 @@ export function RaceStage({
   const interactive =
     (mode === 'running' || mode === 'countdown') && !result && !error && !needsStart;
   const showHud = hud && mode !== 'loading' && mode !== 'ready' && !error;
+  const touchControlsEnabled =
+    touch &&
+    (controlMethod === 'auto' ||
+      controlMethod === 'buttons' ||
+      controlMethod === 'tilt' ||
+      controlMethod === 'drag');
+  const steeringHidden = tiltActive || dragSelected;
+  const controlCopy =
+    controlMethod === 'tilt'
+      ? 'Tilt the phone to steer; calibrate any time from the centre chip.'
+      : controlMethod === 'drag'
+        ? 'Drag anywhere on the road to steer. Throttle, brake and nitro stay under your right thumb.'
+        : controlMethod === 'buttons'
+          ? 'Use the on-screen left and right pads, with throttle, brake and nitro on the right.'
+          : controlMethod === 'gamepad'
+            ? 'Connect a gamepad, then use the left stick and triggers.'
+            : controlMethod === 'keyboard'
+              ? 'Steer with A/D or the arrow keys, throttle with W or up, and fire nitro with space.'
+              : 'Touch devices get steering pads and throttle buttons; keyboards and gamepads work automatically.';
 
   return (
     <FullScreen>
       <Canvas ref={canvasRef} aria-label={`${destination.name} race`} />
       <Vignette />
+      {dragSelected && <DragSteerLayer active={interactive} onSteer={handleDragSteer} />}
 
       {showHud &&
         hud &&
@@ -1310,8 +1380,17 @@ export function RaceStage({
 
       {impact && <Impact key={impact.id} $severity={impact.severity} />}
 
-      {touch && (
-        <TouchControls active={interactive} onControl={handleControl} />
+      {touchControlsEnabled && (
+        <TouchControls
+          active={interactive}
+          onControl={handleControl}
+          showSteering={!steeringHidden}
+          steeringLabel={dragSelected ? 'Drag to steer' : 'Tilt to steer'}
+        />
+      )}
+
+      {touch && tiltSelected && interactive && (
+        <TiltFeedback readout={tiltReadout} fallback={tiltFallback} onCalibrate={calibrateTilt} />
       )}
 
       {mode === 'countdown' && hud && (
@@ -1358,8 +1437,10 @@ export function RaceStage({
               </span>
             </StartMeta>
             <StartNote>
-              Audio needs one tap before the engine can start. Hold the throttle, steer with the
-              arrow keys or A/D, and tap nitro when the road opens up.
+              Audio needs one tap before the engine can start. {controlCopy}{' '}
+              {tiltSelected && touch
+                ? 'Your browser may ask for motion access on this tap.'
+                : 'Keyboard and gamepad input stay available throughout.'}
             </StartNote>
             <StartActions>
               <Button size="xl" icon={<Play size={16} fill="currentColor" />} onClick={startRun}>

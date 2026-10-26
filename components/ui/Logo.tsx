@@ -6,6 +6,7 @@ import { media } from '@/lib/ui/theme';
 
 const sizes = {
   sm: { text: 17, mark: 20, gap: 8, kicker: 6 },
+  nav: { text: 20, mark: 24, gap: 9, kicker: 6 },
   md: { text: 24, mark: 28, gap: 11, kicker: 7 },
   lg: { text: 42, mark: 46, gap: 16, kicker: 9 },
   xl: { text: 'clamp(44px, 8vw, 104px)', mark: 'clamp(44px, 8vw, 104px)', gap: 24, kicker: 11 },
@@ -71,9 +72,7 @@ const Word = styled.span<{ $size: keyof typeof sizes }>`
 `;
 
 const Kicker = styled.span<{ $size: keyof typeof sizes }>`
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  display: block;
   margin-top: 4px;
   color: var(--text-dim);
   font-family: ${({ theme }) => theme.fonts.body};
@@ -82,14 +81,6 @@ const Kicker = styled.span<{ $size: keyof typeof sizes }>`
   letter-spacing: 0.42em;
   text-transform: uppercase;
   white-space: nowrap;
-
-  &::before {
-    content: '';
-    width: 12px;
-    height: 1px;
-    background: var(--lime);
-    flex: 0 0 auto;
-  }
 `;
 
 export function BrandMark({ size = 28 }: { size?: number }) {

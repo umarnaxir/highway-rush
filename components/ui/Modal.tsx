@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import styled from 'styled-components';
+import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { Button } from './Button';
 import { media } from '@/lib/ui/theme';
@@ -16,7 +17,6 @@ const Backdrop = styled.div`
   padding: 24px;
   background: rgba(2, 4, 6, 0.78);
   backdrop-filter: blur(10px);
-  animation: fadeIn 0.18s ease both;
 `;
 
 const Dialog = styled.div<{ $size: 'sm' | 'md' | 'lg' }>`
@@ -30,34 +30,15 @@ const Dialog = styled.div<{ $size: 'sm' | 'md' | 'lg' }>`
   border: 1px solid ${({ theme }) => theme.colors.lineStrong};
   border-radius: 8px;
   box-shadow: 0 40px 120px rgba(0, 0, 0, 0.7);
-  animation: modalIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
   position: relative;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 24px;
-    right: 24px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(215, 255, 63, 0.6), transparent);
-  }
-
-  @keyframes modalIn {
-    from {
-      opacity: 0;
-      transform: translateY(18px) scale(0.985);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
 
   ${media.mobile} {
     max-height: 90vh;
   }
 `;
+
+const MotionBackdrop = motion.create(Backdrop);
+const MotionDialog = motion.create(Dialog);
 
 const Head = styled.div`
   display: flex;
@@ -154,31 +135,50 @@ export function Modal({
     };
   }, [open, onClose]);
 
-  if (!mounted || !open) return null;
+  if (!mounted) return null;
 
   return createPortal(
-    <Backdrop
-      role="presentation"
-      onMouseDown={(event) => {
-        if (closeOnBackdrop && event.target === event.currentTarget) onClose();
-      }}
-    >
-      <Dialog $size={size} role="dialog" aria-modal="true" aria-label={title}>
-        <Head>
-          <div>
-            <Title>{title}</Title>
-            {subtitle && <Subtitle>{subtitle}</Subtitle>}
-          </div>
-          {!hideClose && (
-            <Close onClick={onClose} aria-label="Close dialog">
-              <X size={17} />
-            </Close>
-          )}
-        </Head>
-        {children && <Body>{children}</Body>}
-        {footer && <Footer>{footer}</Footer>}
-      </Dialog>
-    </Backdrop>,
+    <AnimatePresence>
+      {open && (
+        <MotionBackdrop
+          key="modal-backdrop"
+          role="presentation"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          onMouseDown={(event) => {
+            if (closeOnBackdrop && event.target === event.currentTarget) onClose();
+          }}
+        >
+          <MotionDialog
+            key="modal-dialog"
+            $size={size}
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+            initial={{ opacity: 0, y: 18, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.99 }}
+            transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <Head>
+              <div>
+                <Title>{title}</Title>
+                {subtitle && <Subtitle>{subtitle}</Subtitle>}
+              </div>
+              {!hideClose && (
+                <Close onClick={onClose} aria-label="Close dialog">
+                  <X size={17} />
+                </Close>
+              )}
+            </Head>
+            {children && <Body>{children}</Body>}
+            {footer && <Footer>{footer}</Footer>}
+          </MotionDialog>
+        </MotionBackdrop>
+      )}
+    </AnimatePresence>,
     document.body,
   );
 }

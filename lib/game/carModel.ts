@@ -1,12 +1,21 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import type { CarClass, CarCustomization, Quality, SpoilerStyle, WheelStyle } from '@/lib/types';
+import type {
+  CarBodyStyle,
+  CarClass,
+  CarCustomization,
+  Quality,
+  SpoilerStyle,
+  WheelStyle,
+} from '@/lib/types';
 import { disposeObject3D } from './dispose';
 
 export interface CarVisualOptions {
   paint: string;
   customization: CarCustomization;
   carClass: CarClass;
+  /** Optional per-vehicle silhouette; falls back to the class dimensions. */
+  bodyStyle?: CarBodyStyle;
   accent: string;
   quality: Quality;
   isPlayer?: boolean;
@@ -26,13 +35,38 @@ export interface CarModel {
   dispose: () => void;
 }
 
-const BODY_DIMENSIONS: Record<CarClass, { width: number; length: number; height: number; wheel: number; wheelWidth: number }> = {
-  sport: { width: 1.88, length: 4.3, height: 0.56, wheel: 0.36, wheelWidth: 0.25 },
-  muscle: { width: 1.98, length: 4.6, height: 0.6, wheel: 0.39, wheelWidth: 0.3 },
-  super: { width: 1.98, length: 4.5, height: 0.5, wheel: 0.37, wheelWidth: 0.3 },
-  hyper: { width: 2.02, length: 4.7, height: 0.48, wheel: 0.37, wheelWidth: 0.32 },
-  offroad: { width: 2.02, length: 4.55, height: 0.66, wheel: 0.44, wheelWidth: 0.3 },
-  electric: { width: 1.94, length: 4.5, height: 0.52, wheel: 0.37, wheelWidth: 0.26 },
+interface BodyDimensions {
+  width: number;
+  length: number;
+  height: number;
+  wheel: number;
+  wheelWidth: number;
+  cabinHeight: number;
+  cabinLength: number;
+  roofRails?: boolean;
+}
+
+const BODY_DIMENSIONS: Record<CarClass, BodyDimensions> = {
+  sport: { width: 1.88, length: 4.3, height: 0.56, wheel: 0.36, wheelWidth: 0.25, cabinHeight: 0.6, cabinLength: 0.43 },
+  muscle: { width: 1.98, length: 4.6, height: 0.6, wheel: 0.39, wheelWidth: 0.3, cabinHeight: 0.58, cabinLength: 0.39 },
+  super: { width: 1.98, length: 4.5, height: 0.5, wheel: 0.37, wheelWidth: 0.3, cabinHeight: 0.48, cabinLength: 0.37 },
+  hyper: { width: 2.02, length: 4.7, height: 0.48, wheel: 0.37, wheelWidth: 0.32, cabinHeight: 0.45, cabinLength: 0.35 },
+  offroad: { width: 2.02, length: 4.55, height: 0.66, wheel: 0.44, wheelWidth: 0.3, cabinHeight: 0.72, cabinLength: 0.5 },
+  electric: { width: 1.94, length: 4.5, height: 0.52, wheel: 0.37, wheelWidth: 0.26, cabinHeight: 0.58, cabinLength: 0.45 },
+};
+
+/**
+ * Distinct silhouettes are what keep a procedural garage from looking like one
+ * car with fourteen paint swatches. Dimensions are real-world-inspired
+ * proportions, not licensed OEM geometry.
+ */
+const BODY_STYLE_DIMENSIONS: Record<CarBodyStyle, BodyDimensions> = {
+  coupe: { width: 1.9, length: 4.54, height: 0.56, wheel: 0.37, wheelWidth: 0.28, cabinHeight: 0.58, cabinLength: 0.39 },
+  supercar: { width: 1.99, length: 4.58, height: 0.47, wheel: 0.37, wheelWidth: 0.32, cabinHeight: 0.43, cabinLength: 0.34 },
+  sedan: { width: 1.94, length: 4.98, height: 0.6, wheel: 0.37, wheelWidth: 0.27, cabinHeight: 0.65, cabinLength: 0.5 },
+  suv: { width: 2.04, length: 4.9, height: 0.73, wheel: 0.44, wheelWidth: 0.31, cabinHeight: 0.82, cabinLength: 0.54, roofRails: true },
+  muscle: { width: 2, length: 4.78, height: 0.62, wheel: 0.39, wheelWidth: 0.31, cabinHeight: 0.56, cabinLength: 0.39 },
+  hatch: { width: 1.86, length: 4.24, height: 0.59, wheel: 0.35, wheelWidth: 0.25, cabinHeight: 0.63, cabinLength: 0.47 },
 };
 
 function standardMaterial(
@@ -134,7 +168,7 @@ function createWheel(
 
 export function createCarModel(options: CarVisualOptions): CarModel {
   const { carClass, quality, customization } = options;
-  const dims = BODY_DIMENSIONS[carClass];
+  const dims = options.bodyStyle ? BODY_STYLE_DIMENSIONS[options.bodyStyle] : BODY_DIMENSIONS[carClass];
   const group = new THREE.Group();
   const paintable: THREE.Material[] = [];
   const accentMaterials: THREE.MeshStandardMaterial[] = [];
@@ -180,8 +214,9 @@ export function createCarModel(options: CarVisualOptions): CarModel {
   const lowerHeight = dims.height;
   const width = dims.width;
   const length = dims.length;
-  const isOffroad = carClass === 'offroad';
-  const isSuper = carClass === 'super' || carClass === 'hyper';
+  const isOffroad = carClass === 'offroad' || options.bodyStyle === 'suv';
+  const isSuper = options.bodyStyle === 'supercar' || carClass === 'hyper';
+  const isSedan = options.bodyStyle === 'sedan';
 
   const body = new THREE.Mesh(
     new RoundedBoxGeometry(width, lowerHeight, length, 5, 0.14),
@@ -200,8 +235,8 @@ export function createCarModel(options: CarVisualOptions): CarModel {
   hood.castShadow = quality !== 'low';
   group.add(hood);
 
-  const cabinLength = isSuper ? length * 0.37 : length * 0.43;
-  const cabinHeight = isOffroad ? 0.72 : isSuper ? 0.48 : 0.6;
+  const cabinLength = isSuper ? length * 0.35 : length * dims.cabinLength;
+  const cabinHeight = isSuper ? dims.cabinHeight : isOffroad ? dims.cabinHeight : dims.cabinHeight;
   const cabin = new THREE.Mesh(
     new RoundedBoxGeometry(width * 0.82, cabinHeight, cabinLength, 4, 0.1),
     glassMaterial,
@@ -217,6 +252,26 @@ export function createCarModel(options: CarVisualOptions): CarModel {
   roof.position.set(0, 1.0 + cabinHeight * 0.82, length * 0.08);
   roof.castShadow = quality !== 'low';
   group.add(roof);
+
+  // Body-style cues: roof rails on SUVs, a strong shoulder line on saloons,
+  // and a short rear deck on supercars. These are still original stylised parts.
+  if (dims.roofRails) {
+    for (const side of [-1, 1]) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, cabinLength * 0.75), trimMaterial);
+      rail.position.set(side * width * 0.34, 1.02 + cabinHeight * 0.84, length * 0.07);
+      group.add(rail);
+    }
+  }
+  if (isSedan) {
+    for (const side of [-1, 1]) {
+      const shoulder = new THREE.Mesh(
+        new THREE.BoxGeometry(0.025, 0.035, length * 0.68),
+        accentMaterial,
+      );
+      shoulder.position.set(side * (width / 2 + 0.016), 0.8, 0);
+      group.add(shoulder);
+    }
+  }
 
   // Front splitter and rear diffuser.
   const splitter = new THREE.Mesh(new THREE.BoxGeometry(width * 1.01, 0.08, 0.4), trimMaterial);

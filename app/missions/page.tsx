@@ -317,7 +317,7 @@ export default function MissionsPage() {
 
       <SectionHead>
         <div>
-          <SectionKicker>Today's board</SectionKicker>
+          <SectionKicker>Today&apos;s board</SectionKicker>
           <h2>Daily objectives</h2>
         </div>
         <Timer>

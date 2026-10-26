@@ -12,6 +12,7 @@ import type {
   Settings,
 } from '@/lib/types';
 import type { AudioManager } from '@/lib/audio/AudioManager';
+import { effectiveCarStats } from '@/lib/data/cars';
 import { createCarModel, type CarModel } from './carModel';
 import { buildEnvironment, type EnvironmentHandle, ROAD_CONSTANTS } from './environment';
 import { disposeObject3D, makeCanvasTexture } from './dispose';
@@ -267,6 +268,7 @@ export class HighwayRushEngine {
       paint: options.customization.paint,
       customization: options.customization,
       carClass: options.car.className,
+      bodyStyle: options.car.bodyStyle,
       accent: options.car.accent,
       quality: this.quality(),
       isPlayer: true,
@@ -505,7 +507,7 @@ export class HighwayRushEngine {
   }
 
   private startRaceAudio(): void {
-    this.audio.startEngine();
+    this.audio.startEngine(this.options.car.engineProfile);
     this.audio.playAmbience(this.options.destination.environment);
     this.audio.playMusic(this.options.destination.music);
     this.audio.setPaused(false);
@@ -749,7 +751,7 @@ export class HighwayRushEngine {
     this.nitroCueCooldown = Math.max(0, this.nitroCueCooldown - dt);
     this.blinkTimer += dt;
 
-    const stats = this.options.car.stats;
+    const stats = effectiveCarStats(this.options.car, this.options.customization);
     const maxSpeedMps = (210 + stats.speed * 1.18) / 3.6;
     const nitroMax = maxSpeedMps * 1.13;
     const accel = 5.6 + stats.acceleration * 0.115;
@@ -1237,6 +1239,23 @@ export class HighwayRushEngine {
       return;
     }
     this.input.setVirtual(action, active);
+  }
+
+  /**
+   * Continuous steering channel used by tilt and touch-drag. Values are
+   * clamped by the input controller and combine with keyboard/gamepad input.
+   */
+  setAnalogSteer(value: number): void {
+    if (this.mode !== 'running' && this.mode !== 'countdown') {
+      this.input.setAnalogSteer(0);
+      return;
+    }
+    this.input.setAnalogSteer(value);
+  }
+
+  /** Current smoothed steering value for HUD/preview feedback. */
+  getSteeringFeedback(): number {
+    return this.steerVisual;
   }
 
   setSettings(settings: Settings): void {

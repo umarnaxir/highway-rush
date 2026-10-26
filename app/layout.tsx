@@ -1,4 +1,7 @@
 import type { Metadata, Viewport } from 'next';
+import '@fontsource-variable/inter';
+import '@fontsource-variable/manrope';
+import '@fontsource-variable/space-grotesk';
 import './globals.css';
 import { StyledComponentsRegistry } from '@/components/providers/StyledComponentsRegistry';
 import { Providers } from '@/components/providers/Providers';
@@ -9,7 +12,7 @@ export const metadata: Metadata = {
     template: '%s · Highway Rush',
   },
   description:
-    'A premium 3D endless highway racer. Thread traffic, chain near misses, fire nitro and chase records across seven distinct destinations. Built by Umar Nazir.',
+    'A premium 3D endless highway racer. Thread traffic, chain near misses, fire nitro and chase records across eight distinct destinations. Built by Umar Nazir.',
   applicationName: 'Highway Rush',
   authors: [{ name: 'Umar Nazir' }],
   creator: 'Umar Nazir',
@@ -24,7 +27,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Highway Rush — Endless Drive',
     description:
-      'Seven routes. Eight machines. One endless stretch of asphalt. A premium browser racing game built by Umar Nazir.',
+      'Eight routes. Fourteen machines. One endless stretch of asphalt. A premium browser racing game built by Umar Nazir.',
     type: 'website',
   },
   icons: {

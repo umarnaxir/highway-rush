@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import styled from 'styled-components';
 import {
@@ -21,6 +22,7 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { Badge, Panel, PanelLabel, ProgressBar, SectionKicker, SectionTitle } from '@/components/ui/Panel';
 import { DestinationVisual, EnvironmentIcon } from '@/components/ui/DestinationVisual';
 import { PreviewCanvas } from '@/components/game/PreviewCanvas';
+import { PageMotion } from '@/components/motion/PageMotion';
 import { getDefaultCustomization, CARS_BY_ID } from '@/lib/data/cars';
 import { DESTINATIONS } from '@/lib/data/destinations';
 import { TROPHIES } from '@/lib/data/trophies';
@@ -29,9 +31,9 @@ import { formatCompact, formatDistance, formatNumber } from '@/lib/ui/format';
 import { media } from '@/lib/ui/theme';
 
 const Wrap = styled.div`
-  max-width: 1420px;
+  width: var(--page-width);
   margin: 0 auto;
-  padding: 0 clamp(16px, 3vw, 36px);
+  padding: 0 var(--page-pad);
 `;
 
 const Hero = styled.section`
@@ -39,38 +41,41 @@ const Hero = styled.section`
   grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
   gap: clamp(24px, 4vw, 58px);
   align-items: center;
-  padding: clamp(36px, 6vw, 84px) clamp(16px, 3vw, 36px) clamp(24px, 4vw, 42px);
-  max-width: 1420px;
+  width: var(--page-width);
   margin: 0 auto;
+  padding: clamp(36px, 6vw, 84px) var(--page-pad) clamp(24px, 4vw, 42px);
   animation: pageIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 
   ${media.desktop} {
     grid-template-columns: 1fr;
     padding-top: 38px;
   }
+
+  ${media.tablet} {
+    gap: 24px;
+    padding: 32px var(--page-pad) 20px;
+  }
+
+  ${media.mobile} {
+    padding: 26px var(--page-pad) 16px;
+  }
 `;
 
 const HeroCopy = styled.div`
   position: relative;
   z-index: 2;
+  min-width: 0;
 `;
 
 const Eyebrow = styled.div`
   display: inline-flex;
   align-items: center;
-  gap: 10px;
   color: ${({ theme }) => theme.colors.lime};
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.3em;
   text-transform: uppercase;
   margin-bottom: 18px;
-  &::before {
-    content: '';
-    width: 34px;
-    height: 1px;
-    background: currentColor;
-  }
 `;
 
 const Title = styled.h1`
@@ -90,7 +95,10 @@ const Title = styled.h1`
   }
 
   ${media.mobile} {
-    font-size: clamp(46px, 15vw, 74px);
+    margin-left: 0;
+    font-size: clamp(54px, 16.5vw, 80px);
+    line-height: 0.8;
+    letter-spacing: -0.05em;
   }
 `;
 
@@ -100,6 +108,12 @@ const Sub = styled.p`
   color: ${({ theme }) => theme.colors.textMuted};
   font-size: clamp(13px, 1.2vw, 15px);
   line-height: 1.8;
+
+  ${media.mobile} {
+    margin-top: 18px;
+    font-size: 13.5px;
+    line-height: 1.72;
+  }
 `;
 
 const CTAs = styled.div`
@@ -107,6 +121,46 @@ const CTAs = styled.div`
   gap: 12px;
   flex-wrap: wrap;
   margin-top: 30px;
+
+  ${media.tablet} {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    max-width: 520px;
+    gap: 8px;
+    margin-top: 24px;
+
+    > a {
+      min-height: 48px;
+      padding: 0 12px;
+      font-size: 11px;
+      gap: 7px;
+    }
+
+    > a svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  ${media.mobile} {
+    margin-top: 22px;
+
+    > a {
+      min-height: 46px;
+      padding: 0 10px;
+      font-size: 10.5px;
+      letter-spacing: 0.06em;
+    }
+  }
+
+  @media (max-width: 359px) {
+    grid-template-columns: 1fr;
+
+    > a {
+      min-height: 48px;
+    }
+  }
 `;
 
 const QuickFacts = styled.div`
@@ -115,8 +169,6 @@ const QuickFacts = styled.div`
   gap: 22px;
   flex-wrap: wrap;
   margin-top: 30px;
-  padding-top: 22px;
-  border-top: 1px solid ${({ theme }) => theme.colors.line};
 
   div {
     display: flex;
@@ -128,14 +180,47 @@ const QuickFacts = styled.div`
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
+
   svg {
+    flex: 0 0 auto;
     color: ${({ theme }) => theme.colors.lime};
+  }
+
+  ${media.tablet} {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+    max-width: 520px;
+    margin-top: 24px;
+
+    div {
+      justify-content: center;
+      min-width: 0;
+      gap: 5px;
+      font-size: 8.5px;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    div:nth-child(4) {
+      display: none;
+    }
+
+    svg {
+      width: 12px;
+      height: 12px;
+    }
   }
 `;
 
 const HeroVisual = styled.div`
   position: relative;
   min-height: 430px;
+
+  ${media.tablet} {
+    min-height: 360px;
+  }
 
   ${media.mobile} {
     min-height: 330px;
@@ -144,7 +229,7 @@ const HeroVisual = styled.div`
 
 const Glow = styled.div`
   position: absolute;
-  inset: 6% -4% 2%;
+  inset: 6% 0 2%;
   background: radial-gradient(
     ellipse at 60% 46%,
     rgba(215, 255, 63, 0.13),
@@ -173,6 +258,10 @@ const Stage = styled.div`
     inset: 0;
     background: linear-gradient(180deg, transparent 55%, rgba(4, 6, 7, 0.72));
     pointer-events: none;
+  }
+
+  ${media.tablet} {
+    min-height: 360px;
   }
 
   ${media.mobile} {
@@ -331,6 +420,12 @@ const SectionHead = styled.div`
   gap: 24px;
   margin-bottom: 26px;
   flex-wrap: wrap;
+
+  ${media.mobile} {
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
 `;
 
 const SectionCopy = styled.div`
@@ -351,8 +446,77 @@ const RouteGrid = styled.div`
   ${media.desktop} {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  ${media.mobile} {
-    grid-template-columns: 1fr;
+
+  ${media.tablet} {
+    display: flex;
+    gap: 12px;
+    margin-inline: calc(-1 * var(--page-pad));
+    padding: 2px var(--page-pad) 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--page-pad);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    > a {
+      flex: 0 0 min(80vw, 340px);
+      scroll-snap-align: start;
+    }
+  }
+`;
+
+const CarouselDots = styled.div`
+  display: none;
+
+  ${media.tablet} {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-top: 6px;
+
+    button {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    button span {
+      display: block;
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(245, 246, 247, 0.24);
+      transition:
+        width 0.2s ease,
+        background 0.2s ease,
+        box-shadow 0.2s ease;
+    }
+
+    button[aria-current='true'] span {
+      width: 18px;
+      border-radius: 3px;
+      background: var(--lime);
+      box-shadow: 0 0 10px rgba(215, 255, 63, 0.35);
+    }
+
+    button:focus-visible {
+      outline: 2px solid var(--lime);
+      outline-offset: -4px;
+      border-radius: 999px;
+    }
   }
 `;
 
@@ -365,21 +529,27 @@ const RouteCard = styled(Link)`
   transition:
     transform 0.22s ease,
     border-color 0.22s ease;
-  grid-column: span 1;
 
   &:hover {
     transform: translateY(-3px);
     border-color: var(--line-strong);
   }
 
-  ${media.desktop} {
-    &:nth-child(1) {
-      grid-column: span 2;
+  &:active {
+    transform: scale(0.99);
+  }
+
+  ${media.tablet} {
+    > div:first-child {
+      height: 120px;
+      min-height: 120px;
     }
   }
+
   ${media.mobile} {
-    &:nth-child(1) {
-      grid-column: span 1;
+    > div:first-child {
+      height: 112px;
+      min-height: 112px;
     }
   }
 `;
@@ -396,6 +566,7 @@ const RouteInfo = styled.div`
     font-family: ${({ theme }) => theme.fonts.display};
     font-size: 18px;
     font-weight: 800;
+    line-height: 1.05;
     text-transform: uppercase;
     letter-spacing: 0.01em;
   }
@@ -407,6 +578,21 @@ const RouteInfo = styled.div`
     font-weight: 800;
     letter-spacing: 0.18em;
     text-transform: uppercase;
+  }
+
+  ${media.mobile} {
+    padding: 12px 13px 13px;
+    gap: 10px;
+
+    strong {
+      font-size: 16px;
+    }
+
+    small {
+      margin-top: 4px;
+      font-size: 7.5px;
+      letter-spacing: 0.14em;
+    }
   }
 `;
 
@@ -583,6 +769,66 @@ export default function HomePage() {
   const ownedCars = useGameStore((state) => state.ownedCars);
   const coins = useGameStore((state) => state.coins);
   const tutorialSeen = useGameStore((state) => state.tutorialSeen);
+  const routeTrackRef = useRef<HTMLDivElement>(null);
+  const [activeRoute, setActiveRoute] = useState(0);
+
+  const handleRouteScroll = () => {
+    const track = routeTrackRef.current;
+    if (!track) return;
+
+    const cards = Array.from(track.children) as HTMLElement[];
+    if (!cards.length) return;
+
+    if (track.scrollWidth <= track.clientWidth) {
+      setActiveRoute((current) => (current === 0 ? current : 0));
+      return;
+    }
+
+    if (track.scrollWidth - track.clientWidth - track.scrollLeft <= 2) {
+      const last = cards.length - 1;
+      setActiveRoute((current) => (current === last ? current : last));
+      return;
+    }
+
+    if (track.scrollLeft <= 2) {
+      setActiveRoute((current) => (current === 0 ? current : 0));
+      return;
+    }
+
+    const trackRect = track.getBoundingClientRect();
+    const padding = Number.parseFloat(window.getComputedStyle(track).paddingLeft) || 0;
+    const snapEdge = trackRect.left + padding;
+    let nearest = 0;
+    let distance = Number.POSITIVE_INFINITY;
+
+    cards.forEach((card, index) => {
+      const cardRect = card.getBoundingClientRect();
+      const nextDistance = Math.abs(cardRect.left - snapEdge);
+      if (nextDistance < distance) {
+        nearest = index;
+        distance = nextDistance;
+      }
+    });
+
+    setActiveRoute((current) => (current === nearest ? current : nearest));
+  };
+
+  const goToRoute = (index: number) => {
+    const track = routeTrackRef.current;
+    const card = track?.children[index] as HTMLElement | undefined;
+    if (!track || !card) return;
+
+    const padding = Number.parseFloat(window.getComputedStyle(track).paddingLeft) || 0;
+    const nextLeft =
+      track.scrollLeft +
+      card.getBoundingClientRect().left -
+      track.getBoundingClientRect().left -
+      padding;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    track.scrollTo({ left: Math.max(0, nextLeft), behavior: reduced ? 'auto' : 'smooth' });
+    setActiveRoute(index);
+  };
 
   const car = CARS_BY_ID[selectedCarId] ?? Object.values(CARS_BY_ID)[0];
   const customization = customizations[car.id] ?? getDefaultCustomization(car);
@@ -595,6 +841,7 @@ export default function HomePage() {
   return (
     <>
       <NavBar />
+      <PageMotion>
       <Hero>
         <HeroCopy>
           <Eyebrow>Endless Drive · Arcade Racing</Eyebrow>
@@ -604,7 +851,7 @@ export default function HomePage() {
           </Title>
           <Sub>
             Thread impossible traffic at 300 km/h. Chain near misses, fire the nitro, and chase a
-            personal best across seven hand-built destinations. No downloads. No shortcuts. Just the
+            personal best across eight hand-built destinations. No downloads. No shortcuts. Just the
             next kilometre.
           </Sub>
           <CTAs>
@@ -660,7 +907,7 @@ export default function HomePage() {
           {[...DESTINATIONS, ...DESTINATIONS].map((item, index) => (
             <span key={`${item.id}-${index}`}>
               <EnvironmentIcon environment={item.environment} /> {item.name}
-              <em style={{ opacity: 0.35, fontStyle: 'normal' }}>///</em> {item.region}
+              {item.region}
             </span>
           ))}
         </div>
@@ -701,7 +948,7 @@ export default function HomePage() {
             <SectionCopy>
               <SectionKicker>The route map</SectionKicker>
               <SectionTitle>
-                Seven ways to <em>disappear.</em>
+                Eight ways to <em>disappear.</em>
               </SectionTitle>
               <p>
                 Every destination is a complete environment build: custom sky, weather, lighting,
@@ -713,7 +960,7 @@ export default function HomePage() {
               View all routes
             </ButtonLink>
           </SectionHead>
-          <RouteGrid>
+          <RouteGrid ref={routeTrackRef} onScroll={handleRouteScroll}>
             {DESTINATIONS.map((item) => {
               const isUnlocked = unlockDestinations.includes(item.id);
               return (
@@ -733,25 +980,20 @@ export default function HomePage() {
                 </RouteCard>
               );
             })}
-            <RouteCard href="/missions" style={{ display: 'grid', placeItems: 'center', minHeight: 220 }}>
-              <div style={{ textAlign: 'center', padding: 28 }}>
-                <Target size={26} style={{ color: 'var(--lime)', marginBottom: 14 }} />
-                <strong
-                  style={{
-                    display: 'block',
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 22,
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Daily objectives
-                </strong>
-                <small style={{ display: 'block', marginTop: 8, color: 'var(--text-muted)', fontSize: 11 }}>
-                  Fresh missions every day. Claim coins, unlock routes.
-                </small>
-              </div>
-            </RouteCard>
           </RouteGrid>
+          <CarouselDots aria-label="Choose a destination">
+            {DESTINATIONS.map((item, index) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-label={`Show ${item.name}`}
+                aria-current={activeRoute === index ? 'true' : undefined}
+                onClick={() => goToRoute(index)}
+              >
+                <span aria-hidden="true" />
+              </button>
+            ))}
+          </CarouselDots>
         </Section>
 
         <Section>
@@ -882,6 +1124,7 @@ export default function HomePage() {
         </Section>
       </Wrap>
       <Footer />
+      </PageMotion>
     </>
   );
 }

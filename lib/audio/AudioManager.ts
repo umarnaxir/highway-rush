@@ -1,4 +1,4 @@
-import type { AudioCue, Settings } from '@/lib/types';
+import type { AudioCue, EngineProfile, Settings } from '@/lib/types';
 
 type MusicStyle =
   | 'menu'
@@ -87,6 +87,20 @@ const AMBIENCE_FILTERS: Record<AmbienceStyle, { frequency: number; q: number; ga
   neon: { frequency: 260, q: 1.4, gain: 0.14 },
 };
 
+const ENGINE_PROFILE_CONFIG: Record<
+  EngineProfile,
+  { base: number; sweep: number; harmonic: number; filter: number; q: number; wave: OscillatorType }
+> = {
+  'flat-six': { base: 52, sweep: 92, harmonic: 2.52, filter: 420, q: 5.2, wave: 'sawtooth' },
+  'v8-crossplane': { base: 34, sweep: 78, harmonic: 1.5, filter: 300, q: 3.2, wave: 'sawtooth' },
+  'v8-flatplane': { base: 46, sweep: 106, harmonic: 2, filter: 520, q: 5.8, wave: 'square' },
+  v10: { base: 44, sweep: 126, harmonic: 2.5, filter: 680, q: 6.4, wave: 'sawtooth' },
+  v12: { base: 30, sweep: 112, harmonic: 3, filter: 620, q: 4.6, wave: 'triangle' },
+  'inline-six': { base: 40, sweep: 88, harmonic: 2.02, filter: 460, q: 4.4, wave: 'sawtooth' },
+  electric: { base: 108, sweep: 180, harmonic: 2.01, filter: 1100, q: 1.4, wave: 'sine' },
+  'offroad-v8': { base: 28, sweep: 66, harmonic: 1.49, filter: 220, q: 2.4, wave: 'sawtooth' },
+};
+
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
@@ -108,6 +122,7 @@ export class AudioManager {
   private engineSub: OscillatorNode | null = null;
   private engineFilter: BiquadFilterNode | null = null;
   private engineGain: GainNode | null = null;
+  private engineProfile: EngineProfile = 'v8-crossplane';
 
   private tireSource: AudioBufferSourceNode | null = null;
   private tireGain: GainNode | null = null;
@@ -222,10 +237,12 @@ export class AudioManager {
     ramp(this.ambienceBus?.gain, clamp01(this.volumes.ambience));
   }
 
-  startEngine(): void {
+  startEngine(profile: EngineProfile = 'v8-crossplane'): void {
     if (!this.ctx || this.engineStarted || !this.engineBus || !this.sfxBus) return;
     const ctx = this.ctx;
     const sfx = this.sfxBus;
+    const config = ENGINE_PROFILE_CONFIG[profile] ?? ENGINE_PROFILE_CONFIG['v8-crossplane'];
+    this.engineProfile = profile;
     this.engineStarted = true;
     this.engineOsc1 = ctx.createOscillator();
     this.engineOsc2 = ctx.createOscillator();
@@ -233,17 +250,17 @@ export class AudioManager {
     this.engineFilter = ctx.createBiquadFilter();
     this.engineGain = ctx.createGain();
 
-    this.engineOsc1.type = 'sawtooth';
-    this.engineOsc2.type = 'square';
+    this.engineOsc1.type = config.wave;
+    this.engineOsc2.type = profile === 'electric' ? 'sine' : 'square';
     this.engineSub.type = 'sine';
-    this.engineOsc1.frequency.value = 42;
-    this.engineOsc2.frequency.value = 84;
-    this.engineSub.frequency.value = 21;
-    this.engineOsc2.detune.value = 7;
+    this.engineOsc1.frequency.value = config.base;
+    this.engineOsc2.frequency.value = config.base * config.harmonic;
+    this.engineSub.frequency.value = config.base * 0.5;
+    this.engineOsc2.detune.value = profile === 'v8-crossplane' ? 7 : 3;
 
     this.engineFilter.type = 'lowpass';
-    this.engineFilter.frequency.value = 340;
-    this.engineFilter.Q.value = 3.5;
+    this.engineFilter.frequency.value = config.filter;
+    this.engineFilter.Q.value = config.q;
     this.engineGain.gain.value = 0;
 
     this.engineOsc1.connect(this.engineFilter);
@@ -294,12 +311,13 @@ export class AudioManager {
     if (!this.ctx || !this.engineStarted) return;
     const now = this.ctx.currentTime;
     const rpm = clamp01(params.rpm);
+    const profile = ENGINE_PROFILE_CONFIG[this.engineProfile] ?? ENGINE_PROFILE_CONFIG['v8-crossplane'];
     const targetGain = params.paused ? 0 : 0.075 + params.throttle * 0.07;
-    const baseFreq = 34 + rpm * 78 + (params.boosting ? 14 : 0);
-    const filterFreq = 260 + rpm * 1400 + params.throttle * 500;
+    const baseFreq = profile.base + rpm * profile.sweep + (params.boosting ? 16 : 0);
+    const filterFreq = profile.filter + rpm * (520 + profile.q * 120) + params.throttle * 520;
     if (this.engineOsc1 && this.engineOsc2 && this.engineSub) {
       this.engineOsc1.frequency.setTargetAtTime(baseFreq, now, 0.04);
-      this.engineOsc2.frequency.setTargetAtTime(baseFreq * 2.01, now, 0.04);
+      this.engineOsc2.frequency.setTargetAtTime(baseFreq * profile.harmonic, now, 0.04);
       this.engineSub.frequency.setTargetAtTime(baseFreq * 0.5, now, 0.04);
     }
     if (this.engineFilter) {

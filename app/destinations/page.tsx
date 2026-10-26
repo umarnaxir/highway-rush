@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
+import { motion } from 'motion/react';
 import {
   Check,
   ChevronRight,
@@ -100,6 +101,69 @@ const MetaGrid = styled.div`
   margin-top: 18px;
 `;
 
+const RouteNotes = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  background: var(--line);
+  overflow: hidden;
+
+  div {
+    min-width: 0;
+    padding: 10px 11px;
+    background: var(--panel);
+  }
+
+  span {
+    display: block;
+    color: var(--text-dim);
+    font-size: 7px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  strong {
+    display: block;
+    margin-top: 5px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+`;
+
+const SignatureRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 12px;
+`;
+
+const RouteBrief = styled.div`
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+
+  p {
+    margin-top: 5px;
+    color: var(--text-muted);
+    font-size: 10px;
+    line-height: 1.65;
+  }
+
+  span {
+    color: var(--text-dim);
+    font-size: 7px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+`;
+
 const Meta = styled.div`
   padding: 12px;
   border: 1px solid var(--line);
@@ -129,8 +193,25 @@ const RouteList = styled.div`
   gap: 12px;
   margin-top: 16px;
 
-  ${media.mobile} {
-    grid-template-columns: 1fr;
+  ${media.tablet} {
+    display: flex;
+    gap: 12px;
+    margin-inline: calc(-1 * clamp(16px, 3vw, 36px));
+    padding: 2px clamp(16px, 3vw, 36px) 12px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    > * {
+      flex: 0 0 min(84vw, 430px);
+      scroll-snap-align: start;
+    }
   }
 `;
 
@@ -157,6 +238,8 @@ const RouteCard = styled.button<{ $active: boolean; $locked: boolean }>`
     grid-template-columns: 96px 1fr auto;
   }
 `;
+
+const MotionRouteCard = motion.create(RouteCard);
 
 const CardBody = styled.div`
   padding: 13px 15px;
@@ -276,7 +359,7 @@ export default function DestinationsPage() {
       kicker="Route selection"
       title={
         <>
-          Seven horizons. <em>Pick one.</em>
+          Eight horizons. <em>Pick one.</em>
         </>
       }
       intro="Each route is a complete environment with its own weather, lighting, roadside detail and procedural score. Unlock them with coins and progress."
@@ -367,6 +450,34 @@ export default function DestinationsPage() {
               <strong>{bestHere > 0 ? formatNumber(bestHere) : '—'}</strong>
             </Meta>
           </MetaGrid>
+
+          <RouteNotes>
+            <div>
+              <span>Surface</span>
+              <strong>{destination.surface}</strong>
+            </div>
+            <div>
+              <span>Visibility</span>
+              <strong>{destination.visibility}</strong>
+            </div>
+          </RouteNotes>
+
+          <SignatureRow aria-label="Route signatures">
+            {destination.signature.map((feature) => (
+              <Badge key={feature} $tone="neutral">
+                {feature}
+              </Badge>
+            ))}
+          </SignatureRow>
+
+          <RouteBrief>
+            <span>Hazards</span>
+            <p>{destination.hazards}</p>
+          </RouteBrief>
+          <RouteBrief>
+            <span>The fast line</span>
+            <p>{destination.bestLine}</p>
+          </RouteBrief>
 
           <div style={{ marginTop: 18 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 7 }}>
@@ -467,7 +578,7 @@ export default function DestinationsPage() {
               .filter((run) => run.destinationId === item.id)
               .reduce((value, run) => Math.max(value, run.score), 0);
             return (
-              <RouteCard
+              <MotionRouteCard
                 key={item.id}
                 $active={item.id === destination.id}
                 $locked={!isUnlocked}
@@ -476,6 +587,9 @@ export default function DestinationsPage() {
                   getAudioManager().playCue('ui');
                 }}
                 aria-pressed={item.id === destination.id}
+                whileHover={{ y: -3 }}
+                whileTap={{ scale: 0.99 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 30 }}
               >
                 <DestinationVisual destination={item} height={112} showWeather={false} />
                 <CardBody>
@@ -500,7 +614,7 @@ export default function DestinationsPage() {
                     <Lock size={13} />
                   )}
                 </CardAction>
-              </RouteCard>
+              </MotionRouteCard>
             );
           })}
         </RouteList>

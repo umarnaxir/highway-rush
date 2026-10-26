@@ -37,6 +37,7 @@ import { useGameStore, getUnlockedTrophyCount, useHydrated } from '@/lib/store/u
 import { useUiStore } from '@/lib/store/useUiStore';
 import { useMenuAudio } from '@/lib/hooks/useMenuAudio';
 import { getAudioManager } from '@/lib/audio/AudioManager';
+import { requestTiltAccess } from '@/lib/game/tilt';
 import { formatDistance, formatNumber, titleCase } from '@/lib/ui/format';
 import type { Difficulty } from '@/lib/types';
 import { media } from '@/lib/ui/theme';
@@ -109,9 +110,9 @@ const RaceLoading = styled.div`
 `;
 
 const Main = styled.main`
-  max-width: 1420px;
+  width: var(--page-width);
   margin: 0 auto;
-  padding: clamp(30px, 4.4vw, 58px) clamp(16px, 3vw, 36px) 0;
+  padding: clamp(30px, 4.4vw, 58px) var(--page-pad) 0;
   animation: pageIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 `;
 
@@ -433,7 +434,7 @@ const Setup = styled(Panel)`
   flex-direction: column;
   gap: 0;
   position: sticky;
-  top: calc(var(--nav-height) + 16px);
+  top: calc(var(--nav-total-height) + 16px);
 
   ${media.desktop} {
     position: static;
@@ -740,11 +741,15 @@ export default function PlayPage() {
     const audio = getAudioManager();
     audio.playCue('confirm');
     await audio.unlock();
+    if (settings.controls.method === 'tilt') {
+      // iOS only exposes DeviceOrientation permission from a real user gesture.
+      await requestTiltAccess();
+    }
     audio.stopMusic();
     audio.stopAmbience();
     setRacing(true);
     setStarting(false);
-  }, [starting]);
+  }, [settings.controls.method, starting]);
 
   const handleExit = useCallback(() => setRacing(false), []);
 

@@ -5,14 +5,13 @@ import type { ReactNode } from 'react';
 import { NavBar } from './NavBar';
 import { Footer } from './Footer';
 import { SectionKicker, SectionTitle, PageIntro } from '@/components/ui/Panel';
+import { PageMotion } from '@/components/motion/PageMotion';
 import { media } from '@/lib/ui/theme';
 
 const Main = styled.main<{ $wide?: boolean }>`
-  width: 100%;
-  max-width: ${({ $wide }) => ($wide ? '1520px' : '1300px')};
+  width: var(--page-width);
   margin: 0 auto;
-  padding: clamp(32px, 5vw, 68px) clamp(16px, 3vw, 36px) 0;
-  animation: pageIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  padding: clamp(32px, 5vw, 68px) var(--page-pad) 0;
 `;
 
 const Head = styled.header`
@@ -22,6 +21,13 @@ const Head = styled.header`
   gap: 28px;
   margin-bottom: clamp(28px, 4vw, 48px);
   flex-wrap: wrap;
+
+  ${media.mobile} {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 26px;
+  }
 `;
 
 const HeadCopy = styled.div`
@@ -33,13 +39,6 @@ const HeadActions = styled.div`
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-`;
-
-const Rule = styled.div`
-  height: 1px;
-  width: 100%;
-  margin-top: 20px;
-  background: linear-gradient(90deg, var(--line-strong), transparent);
 `;
 
 export interface PageShellProps {
@@ -57,20 +56,21 @@ export function PageShell({ children, kicker, title, intro, actions, wide, bare 
     <>
       <NavBar />
       <Main $wide={wide}>
-        {!bare && (kicker || title) && (
-          <>
-            <Head>
-              <HeadCopy>
-                {kicker && <SectionKicker>{kicker}</SectionKicker>}
-                {title && <SectionTitle>{title}</SectionTitle>}
-                {intro && <PageIntro style={{ marginTop: 14 }}>{intro}</PageIntro>}
-              </HeadCopy>
-              {actions && <HeadActions>{actions}</HeadActions>}
-            </Head>
-            <Rule />
-          </>
-        )}
-        <div style={{ marginTop: bare ? 0 : 28 }}>{children}</div>
+        <PageMotion>
+          {!bare && (kicker || title) && (
+            <>
+              <Head>
+                <HeadCopy>
+                  {kicker && <SectionKicker>{kicker}</SectionKicker>}
+                  {title && <SectionTitle>{title}</SectionTitle>}
+                  {intro && <PageIntro style={{ marginTop: 14 }}>{intro}</PageIntro>}
+                </HeadCopy>
+                {actions && <HeadActions>{actions}</HeadActions>}
+              </Head>
+            </>
+          )}
+          <div>{children}</div>
+        </PageMotion>
       </Main>
       <Footer />
     </>
