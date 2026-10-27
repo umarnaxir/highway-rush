@@ -43,26 +43,26 @@ const Hero = styled.section`
   align-items: center;
   width: var(--page-width);
   margin: 0 auto;
-  padding: clamp(36px, 6vw, 84px) var(--page-pad) clamp(24px, 4vw, 42px);
+  padding: clamp(28px, 5vw, 64px) var(--page-pad) clamp(18px, 3vw, 32px);
   animation: pageIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 
   ${media.desktop} {
     grid-template-columns: 1fr;
-    padding-top: 38px;
+    padding-top: 28px;
   }
 
   ${media.tablet} {
-    gap: 24px;
-    padding: 32px var(--page-pad) 20px;
+    gap: 20px;
+    padding: 24px var(--page-pad) 16px;
   }
 
   ${media.mobile} {
     grid-template-columns: 1fr;
-    gap: 12px;
-    padding: 14px var(--page-pad) 10px;
+    gap: 10px;
+    padding: 12px var(--page-pad) 8px;
 
     .hero-mobile-ctas {
-      margin-top: -4px;
+      margin-top: -2px;
     }
   }
 `;
@@ -453,7 +453,11 @@ const Metric = styled.div`
 `;
 
 const Section = styled.section`
-  margin-top: clamp(64px, 9vw, 112px);
+  margin-top: clamp(28px, 4vw, 56px);
+
+  ${media.mobile} {
+    margin-top: clamp(18px, 7vw, 32px);
+  }
 `;
 
 const SectionHead = styled.div`
@@ -466,8 +470,13 @@ const SectionHead = styled.div`
 
   ${media.mobile} {
     align-items: flex-start;
-    gap: 16px;
-    margin-bottom: 20px;
+    text-align: left;
+    gap: 12px;
+    margin-bottom: 16px;
+
+    > * {
+      width: 100%;
+    }
   }
 `;
 
@@ -478,6 +487,13 @@ const SectionCopy = styled.div`
     color: ${({ theme }) => theme.colors.textMuted};
     font-size: 13px;
     line-height: 1.75;
+  }
+
+  ${media.mobile} {
+    max-width: 100%;
+    p {
+      display: none;
+    }
   }
 `;
 
@@ -509,14 +525,14 @@ const RouteGrid = styled.div`
     > a {
       flex: 0 0 min(84vw, 360px);
       scroll-snap-align: start;
-      min-height: 150px;
+      min-height: 170px;
     }
   }
 
   ${media.mobile} {
     > a {
-      flex: 0 0 88vw;
-      min-height: 170px;
+      flex: 0 0 90vw;
+      min-height: 200px;
     }
   }
 `;
@@ -592,15 +608,15 @@ const RouteCard = styled(Link)`
 
   ${media.tablet} {
     > div:first-child {
-      height: 130px;
-      min-height: 130px;
+      height: 150px;
+      min-height: 150px;
     }
   }
 
   ${media.mobile} {
     > div:first-child {
-      height: 150px;
-      min-height: 150px;
+      height: 170px;
+      min-height: 170px;
     }
     > div:first-child {
       height: 112px;
@@ -666,10 +682,14 @@ const RouteTag = styled.span<{ $locked?: boolean }>`
 const Split = styled.div`
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: 16px;
+  gap: clamp(12px, 2.5vw, 22px);
 
   ${media.desktop} {
     grid-template-columns: 1fr;
+  }
+
+  ${media.mobile} {
+    gap: clamp(10px, 4vw, 16px);
   }
 `;
 
