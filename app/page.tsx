@@ -57,7 +57,10 @@ const Hero = styled.section`
   }
 
   ${media.mobile} {
-    padding: 26px var(--page-pad) 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px var(--page-pad) 12px;
   }
 `;
 
@@ -65,6 +68,12 @@ const HeroCopy = styled.div`
   position: relative;
   z-index: 2;
   min-width: 0;
+
+  ${media.mobile} {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
 `;
 
 const Eyebrow = styled.div`
@@ -110,9 +119,7 @@ const Sub = styled.p`
   line-height: 1.8;
 
   ${media.mobile} {
-    margin-top: 18px;
-    font-size: 13.5px;
-    line-height: 1.72;
+    display: none !important;
   }
 `;
 
@@ -144,7 +151,8 @@ const CTAs = styled.div`
   }
 
   ${media.mobile} {
-    margin-top: 22px;
+    margin-top: 12px;
+    order: 1;
 
     > a {
       min-height: 46px;
@@ -212,9 +220,14 @@ const QuickFacts = styled.div`
       height: 12px;
     }
   }
+
+  ${media.mobile} {
+    display: none;
+  }
 `;
 
 const HeroVisual = styled.div`
+  display: none;
   position: relative;
   min-height: 430px;
 
@@ -223,7 +236,12 @@ const HeroVisual = styled.div`
   }
 
   ${media.mobile} {
-    min-height: 330px;
+    display: block;
+    min-height: 220px;
+    width: 100%;
+    order: 0;
+    margin-top: 6px;
+    margin-bottom: 6px;
   }
 `;
 
@@ -849,6 +867,29 @@ export default function HomePage() {
             Own the
             <em>Highway.</em>
           </Title>
+          <HeroVisual>
+            <Glow />
+            <Stage>
+              <StageCorner>
+                <Badge $tone="lime">
+                  <Sparkles size={10} /> Selected
+                </Badge>
+              </StageCorner>
+              <PreviewCanvas
+                car={car}
+                customization={customization}
+                quality="high"
+                ariaLabel={`${car.name} interactive preview`}
+              />
+              <StageBottom>
+                <CarName>
+                  <span>{car.brand} · {car.className}</span>
+                  <strong>{car.name}</strong>
+                </CarName>
+                <RotateHint>Drag to rotate →</RotateHint>
+              </StageBottom>
+            </Stage>
+          </HeroVisual>
           <Sub>
             Thread impossible traffic at 300 km/h. Chain near misses, fire the nitro, and chase a
             personal best across eight hand-built destinations. No downloads. No shortcuts. Just the
@@ -877,29 +918,6 @@ export default function HomePage() {
             </div>
           </QuickFacts>
         </HeroCopy>
-        <HeroVisual>
-          <Glow />
-          <Stage>
-            <StageCorner>
-              <Badge $tone="lime">
-                <Sparkles size={10} /> Selected
-              </Badge>
-            </StageCorner>
-            <PreviewCanvas
-              car={car}
-              customization={customization}
-              quality="high"
-              ariaLabel={`${car.name} interactive preview`}
-            />
-            <StageBottom>
-              <CarName>
-                <span>{car.brand} · {car.className}</span>
-                <strong>{car.name}</strong>
-              </CarName>
-              <RotateHint>Drag to rotate →</RotateHint>
-            </StageBottom>
-          </Stage>
-        </HeroVisual>
       </Hero>
 
       <Ticker aria-hidden="true">
