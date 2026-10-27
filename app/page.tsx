@@ -57,10 +57,13 @@ const Hero = styled.section`
   }
 
   ${media.mobile} {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding: 18px var(--page-pad) 12px;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 14px var(--page-pad) 10px;
+
+    .hero-mobile-ctas {
+      margin-top: -4px;
+    }
   }
 `;
 
@@ -70,9 +73,7 @@ const HeroCopy = styled.div`
   min-width: 0;
 
   ${media.mobile} {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
+    display: none;
   }
 `;
 
@@ -151,14 +152,22 @@ const CTAs = styled.div`
   }
 
   ${media.mobile} {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
     margin-top: 12px;
-    order: 1;
 
     > a {
-      min-height: 46px;
+      min-height: 44px;
       padding: 0 10px;
-      font-size: 10.5px;
-      letter-spacing: 0.06em;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      gap: 6px;
+    }
+
+    > a svg {
+      width: 14px;
+      height: 14px;
     }
   }
 
@@ -227,7 +236,6 @@ const QuickFacts = styled.div`
 `;
 
 const HeroVisual = styled.div`
-  display: none;
   position: relative;
   min-height: 430px;
 
@@ -236,10 +244,8 @@ const HeroVisual = styled.div`
   }
 
   ${media.mobile} {
-    display: block;
-    min-height: 220px;
+    min-height: 240px;
     width: 100%;
-    order: 0;
     margin-top: 6px;
     margin-bottom: 6px;
   }
@@ -308,9 +314,16 @@ const StageBottom = styled.div`
   gap: 16px;
 
   ${media.mobile} {
-    left: 16px;
-    right: 16px;
-    bottom: 14px;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+
+    .hero-mobile-text {
+      display: flex !important;
+    }
   }
 `;
 
@@ -333,6 +346,18 @@ const CarName = styled.div`
     line-height: 0.9;
     letter-spacing: -0.01em;
     text-transform: uppercase;
+  }
+
+  ${media.mobile} {
+    span {
+      font-size: 7px;
+      letter-spacing: 0.2em;
+      margin-bottom: 2px;
+    }
+    strong {
+      font-size: clamp(22px, 9vw, 28px);
+      white-space: nowrap;
+    }
   }
 `;
 
@@ -482,8 +507,16 @@ const RouteGrid = styled.div`
     }
 
     > a {
-      flex: 0 0 min(80vw, 340px);
+      flex: 0 0 min(84vw, 360px);
       scroll-snap-align: start;
+      min-height: 150px;
+    }
+  }
+
+  ${media.mobile} {
+    > a {
+      flex: 0 0 88vw;
+      min-height: 170px;
     }
   }
 `;
@@ -495,14 +528,15 @@ const CarouselDots = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0;
-    margin-top: 6px;
+    gap: 4px;
+    margin-top: 10px;
 
     button {
-      display: grid;
-      place-items: center;
-      width: 32px;
-      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 1 14px;
+      height: 16px;
       padding: 0;
       border: 0;
       background: transparent;
@@ -513,21 +547,20 @@ const CarouselDots = styled.div`
 
     button span {
       display: block;
-      width: 6px;
-      height: 6px;
-      border-radius: 999px;
-      background: rgba(245, 246, 247, 0.24);
+      width: 100%;
+      height: 3px;
+      border-radius: 2px;
+      background: rgba(245, 246, 247, 0.18);
       transition:
-        width 0.2s ease,
         background 0.2s ease,
+        height 0.2s ease,
         box-shadow 0.2s ease;
     }
 
     button[aria-current='true'] span {
-      width: 18px;
-      border-radius: 3px;
+      height: 4px;
       background: var(--lime);
-      box-shadow: 0 0 10px rgba(215, 255, 63, 0.35);
+      box-shadow: 0 0 10px rgba(215, 255, 63, 0.25);
     }
 
     button:focus-visible {
@@ -559,12 +592,16 @@ const RouteCard = styled(Link)`
 
   ${media.tablet} {
     > div:first-child {
-      height: 120px;
-      min-height: 120px;
+      height: 130px;
+      min-height: 130px;
     }
   }
 
   ${media.mobile} {
+    > div:first-child {
+      height: 150px;
+      min-height: 150px;
+    }
     > div:first-child {
       height: 112px;
       min-height: 112px;
@@ -867,42 +904,11 @@ export default function HomePage() {
             Own the
             <em>Highway.</em>
           </Title>
-          <HeroVisual>
-            <Glow />
-            <Stage>
-              <StageCorner>
-                <Badge $tone="lime">
-                  <Sparkles size={10} /> Selected
-                </Badge>
-              </StageCorner>
-              <PreviewCanvas
-                car={car}
-                customization={customization}
-                quality="high"
-                ariaLabel={`${car.name} interactive preview`}
-              />
-              <StageBottom>
-                <CarName>
-                  <span>{car.brand} · {car.className}</span>
-                  <strong>{car.name}</strong>
-                </CarName>
-                <RotateHint>Drag to rotate →</RotateHint>
-              </StageBottom>
-            </Stage>
-          </HeroVisual>
           <Sub>
             Thread impossible traffic at 300 km/h. Chain near misses, fire the nitro, and chase a
             personal best across eight hand-built destinations. No downloads. No shortcuts. Just the
             next kilometre.
           </Sub>
-          <CTAs>
-            <ButtonLink href="/play" size="xl" icon={<Play size={16} fill="currentColor" />} prefetch>
-              Race Now
-            </ButtonLink>
-            <ButtonLink href="/garage" size="xl" variant="secondary" icon={<Gauge size={16} />}>
-              Enter Garage
-            </ButtonLink>
-          </CTAs>
           <QuickFacts>
             <div>
               <Flag size={13} /> {DESTINATIONS.length} destinations
@@ -918,6 +924,47 @@ export default function HomePage() {
             </div>
           </QuickFacts>
         </HeroCopy>
+        <HeroVisual>
+          <Glow />
+          <Stage>
+            <StageCorner>
+              <Badge $tone="lime">
+                <Sparkles size={10} /> Selected
+              </Badge>
+            </StageCorner>
+            <PreviewCanvas
+              car={car}
+              customization={customization}
+              quality="high"
+              ariaLabel={`${car.name} interactive preview`}
+            />
+            <StageBottom>
+              <div className="hero-mobile-text" style={{ display: 'none', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, width: '100%', padding: '8px 0' }}>
+                <strong style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(26px, 12vw, 38px)', fontWeight: 900, fontStyle: 'italic', textTransform: 'uppercase', lineHeight: 0.84, letterSpacing: '-0.03em', textAlign: 'center', whiteSpace: 'nowrap' }}>OWN THE <em style={{ color: 'var(--lime)', fontStyle: 'inherit' }}>HIGHWAY</em></strong>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', width: '100%', gap: 10, marginTop: 6 }}>
+                <div />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, textAlign: 'right' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                    <span style={{ fontSize: 7, textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--text-dim)' }}>{car.brand} · {car.className}</span>
+                    <strong style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(16px, 7vw, 24px)', fontStyle: 'italic', textTransform: 'uppercase', lineHeight: 0.9 }}>{car.name}</strong>
+                  </div>
+                  <RotateHint>Drag to rotate →</RotateHint>
+                </div>
+              </div>
+            </StageBottom>
+          </Stage>
+        </HeroVisual>
+        <div className="hero-mobile-ctas" style={{ gridColumn: '1 / -1', marginTop: -6 }}>
+          <CTAs>
+            <ButtonLink href="/play" size="xl" icon={<Play size={16} fill="currentColor" />} prefetch>
+              Race Now
+            </ButtonLink>
+            <ButtonLink href="/garage" size="xl" variant="secondary" icon={<Gauge size={16} />}>
+              Enter Garage
+            </ButtonLink>
+          </CTAs>
+        </div>
       </Hero>
 
       <Ticker aria-hidden="true">
