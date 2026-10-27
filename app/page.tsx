@@ -43,12 +43,15 @@ const Hero = styled.section`
   align-items: center;
   width: var(--page-width);
   margin: 0 auto;
-  padding: clamp(28px, 5vw, 64px) var(--page-pad) clamp(18px, 3vw, 32px);
+  padding: clamp(18px, 3.5vw, 40px) var(--page-pad) clamp(12px, 2vw, 20px);
   animation: pageIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 
   ${media.desktop} {
     grid-template-columns: 1fr;
-    padding-top: 28px;
+    padding-top: 16px;
+    padding-bottom: 12px;
+    min-height: 90vh;
+    align-content: center;
   }
 
   ${media.tablet} {
@@ -56,13 +59,23 @@ const Hero = styled.section`
     padding: 24px var(--page-pad) 16px;
   }
 
+  .hero-desktop-ctas {
+    margin-top: 6px;
+  }
+
   ${media.mobile} {
     grid-template-columns: 1fr;
     gap: 10px;
     padding: 12px var(--page-pad) 8px;
+    min-height: auto;
+    align-content: start;
 
     .hero-mobile-ctas {
-      margin-top: -2px;
+      display: block;
+    }
+
+    .hero-desktop-ctas {
+      display: none !important;
     }
   }
 `;
@@ -126,9 +139,9 @@ const Sub = styled.p`
 
 const CTAs = styled.div`
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
-  margin-top: 30px;
+  margin-top: 18px;
 
   ${media.tablet} {
     display: grid;
@@ -453,10 +466,10 @@ const Metric = styled.div`
 `;
 
 const Section = styled.section`
-  margin-top: clamp(28px, 4vw, 56px);
+  margin-top: clamp(18px, 3vw, 38px);
 
   ${media.mobile} {
-    margin-top: clamp(18px, 7vw, 32px);
+    margin-top: clamp(14px, 6vw, 26px);
   }
 `;
 
@@ -975,7 +988,7 @@ export default function HomePage() {
             </StageBottom>
           </Stage>
         </HeroVisual>
-        <div className="hero-mobile-ctas" style={{ gridColumn: '1 / -1', marginTop: -6 }}>
+        <div className="hero-desktop-ctas" style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', width: '100%' }}>
           <CTAs>
             <ButtonLink href="/play" size="xl" icon={<Play size={16} fill="currentColor" />} prefetch>
               Race Now
@@ -1208,6 +1221,7 @@ export default function HomePage() {
           </Split>
         </Section>
       </Wrap>
+      <div style={{ marginTop: 28 }} />
       <Footer />
       </PageMotion>
     </>

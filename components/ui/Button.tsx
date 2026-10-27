@@ -166,8 +166,8 @@ const baseStyles = css<StyleProps>`
     ${({ $size }) =>
       $size === 'xl' &&
       css`
-        min-height: 56px;
-        font-size: 12px;
+        min-height: 48px;
+        font-size: 11px;
       `}
   }
 `;
