@@ -155,6 +155,13 @@ export class HighwayRushEngine {
   private coins: CoinUnit[] = [];
   private playerGroup: THREE.Group;
   private nitroParticles: THREE.Points | null = null;
+  private flameCones: THREE.Mesh[] = [];
+  private flameMaterials: THREE.MeshBasicMaterial[] = [];
+  private exhaustLights: THREE.PointLight[] = [];
+  private sparkVelocities: Float32Array = new Float32Array(0);
+  private sparkAges: Float32Array = new Float32Array(0);
+  private speedLines: THREE.LineSegments | null = null;
+  private backfireTimer = 0;
   private checkpointGate: Gate;
   private finishGate: Gate;
   private input: InputController;
@@ -280,7 +287,8 @@ export class HighwayRushEngine {
 
     this.createTraffic();
     this.createCoins();
-    this.createNitroParticles();
+    this.createExhaustFX();
+    this.createSpeedLines();
 
     this.checkpointGate = makeGate('CHECKPOINT', options.destination.theme.accent);
     this.finishGate = makeGate('FINISH', '#d7ff3f');
@@ -376,7 +384,7 @@ export class HighwayRushEngine {
 
   private currentFov(): number {
     const speedT = Math.min(1, this.speed / 80);
-    const target = this.settings.gameplay.fov + speedT * 5 + (this.boosting ? 6 : 0);
+    const target = this.settings.gameplay.fov + speedT * 6 + (this.boosting ? 11 : 0);
     const motionScale = this.settings.accessibility.reducedMotion ? 0.35 : 1;
     return this.settings.gameplay.fov + (target - this.settings.gameplay.fov) * motionScale;
   }
@@ -465,27 +473,100 @@ export class HighwayRushEngine {
     }
   }
 
-  private createNitroParticles(): void {
-    const count = this.quality() === 'low' ? 24 : 60;
+  private createExhaustFX(): void {
+    const exPositions = this.player.exhaustPositions || [
+      { x: -0.42, y: 0.45, z: 2.3 },
+      { x: 0.42, y: 0.45, z: 2.3 },
+    ];
+
+    const flameGeo = new THREE.ConeGeometry(0.12, 1.4, 8);
+    flameGeo.rotateX(-Math.PI / 2);
+    flameGeo.translate(0, 0, 0.7);
+
+    this.flameCones = [];
+    this.flameMaterials = [];
+    this.exhaustLights = [];
+
+    exPositions.forEach((pos) => {
+      const mat = new THREE.MeshBasicMaterial({
+        color: '#00f2fe',
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const cone = new THREE.Mesh(flameGeo, mat);
+      cone.position.set(pos.x, pos.y, pos.z);
+      cone.visible = false;
+      this.playerGroup.add(cone);
+      this.flameCones.push(cone);
+      this.flameMaterials.push(mat);
+
+      const light = new THREE.PointLight('#00f2fe', 0, 5, 2);
+      light.position.set(pos.x, pos.y, pos.z + 0.3);
+      this.playerGroup.add(light);
+      this.exhaustLights.push(light);
+    });
+
+    const count = this.quality() === 'low' ? 32 : 72;
     const positions = new Float32Array(count * 3);
+    const velocities = new Float32Array(count * 3);
+    const ages = new Float32Array(count);
+
     for (let i = 0; i < count; i += 1) {
-      positions[i * 3] = (Math.random() - 0.5) * 1.2;
-      positions[i * 3 + 1] = 0.5 + Math.random() * 0.5;
-      positions[i * 3 + 2] = 2 + Math.random() * 8;
+      positions[i * 3] = 0;
+      positions[i * 3 + 1] = -100;
+      positions[i * 3 + 2] = 0;
+      ages[i] = 1;
     }
+
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    this.sparkVelocities = velocities;
+    this.sparkAges = ages;
+
     const material = new THREE.PointsMaterial({
-      color: this.options.destination.theme.accent,
-      size: 0.16,
+      color: '#ffd43b',
+      size: 0.22,
       transparent: true,
       opacity: 0.9,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
     this.nitroParticles = new THREE.Points(geometry, material);
-    this.nitroParticles.visible = false;
+    this.nitroParticles.visible = true;
     this.world.add(this.nitroParticles);
+  }
+
+  private createSpeedLines(): void {
+    const count = this.quality() === 'low' ? 35 : 90;
+    const positions = new Float32Array(count * 6);
+    for (let i = 0; i < count; i += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 3.2 + Math.random() * 8.5;
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius * 0.65 + 2.8;
+      const z = -Math.random() * 120;
+      const len = 4 + Math.random() * 10;
+      positions[i * 6] = x;
+      positions[i * 6 + 1] = y;
+      positions[i * 6 + 2] = z;
+      positions[i * 6 + 3] = x;
+      positions[i * 6 + 4] = y;
+      positions[i * 6 + 5] = z + len;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const material = new THREE.LineBasicMaterial({
+      color: '#38bdf8',
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    this.speedLines = new THREE.LineSegments(geometry, material);
+    this.speedLines.visible = false;
+    this.world.add(this.speedLines);
   }
 
   start(endless = false): void {
@@ -569,7 +650,19 @@ export class HighwayRushEngine {
     });
     this.checkpointGate.group.visible = false;
     this.finishGate.group.visible = false;
-    this.nitroParticles!.visible = false;
+    this.flameCones.forEach((cone) => {
+      cone.visible = false;
+    });
+    this.exhaustLights.forEach((light) => {
+      light.intensity = 0;
+    });
+    if (this.speedLines) this.speedLines.visible = false;
+    if (this.nitroParticles) {
+      const attr = this.nitroParticles.geometry.getAttribute('position') as THREE.BufferAttribute;
+      const positions = attr.array as Float32Array;
+      for (let i = 0; i < positions.length; i += 3) positions[i + 1] = -100;
+      attr.needsUpdate = true;
+    }
     this.camera.position.set(0, 5.2, 12.5);
     this.input.clearTransient();
   }
@@ -651,7 +744,9 @@ export class HighwayRushEngine {
       this.updateCamera(dt, this.mode === 'paused');
     }
 
-    this.updateNitroParticles(dt);
+    const currentThrottle = this.input.getState().throttle;
+    this.updateExhaustFX(dt, currentThrottle);
+    this.updateSpeedLines(dt, this.speed * 3.6);
     this.fpsAccum += rawDt;
     this.fpsFrames += 1;
     if (this.fpsAccum >= 0.5) {
@@ -871,6 +966,7 @@ export class HighwayRushEngine {
     const nextGear = Math.min(6, 1 + Math.floor(ratio * 6));
     if (nextGear !== this.gear) {
       this.gear = nextGear;
+      this.backfireTimer = 0.22;
       this.audio.playCue('shift');
       this.options.onEvent({ type: 'gear', gear: this.gear });
     }
@@ -1100,27 +1196,128 @@ export class HighwayRushEngine {
     this.checkpointGate.group.position.z = -(this.nextCheckpoint - this.distanceM);
   }
 
-  private updateNitroParticles(dt: number): void {
-    if (!this.nitroParticles) return;
-    const visible = this.boosting && this.mode === 'running';
-    this.nitroParticles.visible = visible;
-    if (!visible) return;
-    const attr = this.nitroParticles.geometry.getAttribute('position') as THREE.BufferAttribute;
-    const positions = attr.array as Float32Array;
-    if (!this.wasBoosting) {
-      for (let i = 0; i < positions.length; i += 3) {
-        positions[i] = this.playerX + (Math.random() - 0.5) * 1.4;
-        positions[i + 1] = 0.55 + Math.random() * 0.45;
-        positions[i + 2] = 2 + Math.random() * 5;
+  private updateExhaustFX(dt: number, throttle: number): void {
+    this.backfireTimer = Math.max(0, this.backfireTimer - dt);
+    const isNitro = this.boosting && this.mode === 'running';
+    const isAccelerating = throttle > 0.75 && this.rpm > 0.55 && this.mode === 'running';
+    const isBackfiring = this.backfireTimer > 0 && this.mode === 'running';
+
+    const hasFlame = isNitro || isAccelerating || isBackfiring;
+    const now = performance.now();
+
+    for (let i = 0; i < this.flameCones.length; i += 1) {
+      const cone = this.flameCones[i];
+      const mat = this.flameMaterials[i];
+      const light = this.exhaustLights[i];
+
+      if (!hasFlame) {
+        cone.visible = false;
+        if (light) light.intensity = 0;
+        continue;
+      }
+
+      cone.visible = true;
+      const jitter = Math.sin(now * 0.05 + i * 2.3) * 0.15;
+
+      if (isNitro) {
+        // High intensity blue/cyan flame jet
+        mat.color.set('#00f2fe');
+        cone.scale.set(1.1 + jitter, 1.1 + jitter, 1.8 + jitter * 1.5);
+        mat.opacity = 0.95;
+        if (light) {
+          light.color.set('#00f2fe');
+          light.intensity = 2.4 + jitter;
+        }
+      } else if (isBackfiring) {
+        // Explosive burst of orange flame
+        mat.color.set('#ff5722');
+        cone.scale.set(1.4, 1.4, 1.3);
+        mat.opacity = 0.9;
+        if (light) {
+          light.color.set('#ff7043');
+          light.intensity = 2.8;
+        }
+      } else {
+        // Aggressive acceleration flame lick
+        mat.color.set('#ff9800');
+        const lick = Math.sin(now * 0.04 + i) > 0.35 ? 0.6 + jitter * 0.8 : 0;
+        cone.scale.set(0.8, 0.8, lick);
+        mat.opacity = lick > 0 ? 0.75 : 0;
+        if (light) {
+          light.color.set('#ff9800');
+          light.intensity = lick * 1.2;
+        }
       }
     }
-    for (let i = 0; i < positions.length; i += 3) {
-      positions[i + 2] += dt * (this.speed + 14);
-      positions[i] += Math.sin(performance.now() * 0.01 + i) * dt * 0.35;
-      if (positions[i + 2] > 18) {
-        positions[i] = this.playerX + (Math.random() - 0.5) * 1.4;
-        positions[i + 1] = 0.55 + Math.random() * 0.45;
-        positions[i + 2] = 1.8 + Math.random() * 1.2;
+
+    // Spark / ember particle updates
+    if (this.nitroParticles) {
+      const attr = this.nitroParticles.geometry.getAttribute('position') as THREE.BufferAttribute;
+      const positions = attr.array as Float32Array;
+      const count = positions.length / 3;
+      const exPositions = this.player.exhaustPositions || [
+        { x: -0.42, y: 0.45, z: 2.3 },
+        { x: 0.42, y: 0.45, z: 2.3 },
+      ];
+
+      for (let i = 0; i < count; i += 1) {
+        this.sparkAges[i] += dt * (isNitro ? 3.5 : 2.5);
+        if (this.sparkAges[i] >= 1) {
+          if (hasFlame) {
+            this.sparkAges[i] = 0;
+            const ex = exPositions[i % exPositions.length];
+            positions[i * 3] = this.playerX + ex.x + (Math.random() - 0.5) * 0.12;
+            positions[i * 3 + 1] = ex.y + (Math.random() - 0.5) * 0.08;
+            positions[i * 3 + 2] = ex.z + 0.1;
+            this.sparkVelocities[i * 3] = (Math.random() - 0.5) * 1.8;
+            this.sparkVelocities[i * 3 + 1] = (Math.random() - 0.2) * 1.2;
+            this.sparkVelocities[i * 3 + 2] = 12 + Math.random() * (isNitro ? 26 : 12);
+          } else {
+            positions[i * 3 + 1] = -100;
+          }
+        } else {
+          positions[i * 3] += this.sparkVelocities[i * 3] * dt;
+          positions[i * 3 + 1] += this.sparkVelocities[i * 3 + 1] * dt;
+          positions[i * 3 + 2] += (this.sparkVelocities[i * 3 + 2] + this.speed) * dt;
+        }
+      }
+      attr.needsUpdate = true;
+    }
+  }
+
+  private updateSpeedLines(dt: number, speedKph: number): void {
+    if (!this.speedLines) return;
+    const isFast = speedKph > 115 || this.boosting;
+    const visible = isFast && this.mode === 'running';
+    this.speedLines.visible = visible;
+    if (!visible) return;
+
+    const mat = this.speedLines.material as THREE.LineBasicMaterial;
+    const targetOpacity = Math.min(0.85, (speedKph - 110) / 110 + (this.boosting ? 0.35 : 0));
+    mat.opacity = damp(mat.opacity, targetOpacity, 6, dt);
+    mat.color.set(this.boosting ? '#00f2fe' : '#38bdf8');
+
+    const attr = this.speedLines.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const positions = attr.array as Float32Array;
+    const lineSpeed = (this.speed + (this.boosting ? 35 : 15)) * 2.2;
+    const lineCount = positions.length / 6;
+
+    for (let i = 0; i < lineCount; i += 1) {
+      positions[i * 6 + 2] += lineSpeed * dt;
+      positions[i * 6 + 5] += lineSpeed * dt;
+      if (positions[i * 6 + 2] > 20) {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 3.2 + Math.random() * 8.5;
+        const x = this.playerX * 0.5 + Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius * 0.65 + 2.8;
+        const z = -120 - Math.random() * 40;
+        const len = 5 + Math.random() * (this.boosting ? 18 : 10);
+        positions[i * 6] = x;
+        positions[i * 6 + 1] = y;
+        positions[i * 6 + 2] = z;
+        positions[i * 6 + 3] = x;
+        positions[i * 6 + 4] = y;
+        positions[i * 6 + 5] = z + len;
       }
     }
     attr.needsUpdate = true;

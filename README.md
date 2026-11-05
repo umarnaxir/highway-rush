@@ -1,8 +1,26 @@
-# Highway Rush — Endless Drive
+# Highway Rush — Own the Highway
 
-A premium, mobile-first 3D arcade racer built with **Next.js App Router**, **TypeScript**, **React 19**, **Three.js**, **styled-components**, **Zustand** and **Motion**. Thread traffic across eight fictional destinations, chain near misses, fire nitro, build a fourteen-car garage, and chase local records. Everything runs in the browser — there is no backend, database, account system, or API key.
+<p align="center">
+  <img src="./public/screenshots/hero-home.jpg" alt="Highway Rush — Own the Highway" width="100%" />
+</p>
+
+A premium, mobile-first 3D arcade racer built with **Next.js App Router**, **TypeScript**, **React 19**, **Three.js**, **styled-components**, **Zustand** and **Motion**. Thread traffic across eight distinct destinations, chain high-speed near misses, fire dynamic nitro with exhaust flames, build and tune a fourteen-car garage, and complete operational missions. Everything runs directly in the browser with zero buffering at a rock-solid 60 FPS — no backend, database, account system, or API keys required.
 
 **Built by Umar Nazir.**
+
+---
+
+## Visual Experience & Game Gallery
+
+| **Home & Highway Flow** | **Real-Time 3D Gameplay** |
+|:---:|:---:|
+| <img src="./public/screenshots/hero-home.jpg" alt="Highway Rush Main Menu" width="100%" /> | <img src="./public/screenshots/gameplay-racing.jpg" alt="3D High-Speed Racing Gameplay" width="100%" /> |
+| *Live highway preview, moving AI traffic, instant-launch HUD* | *270+ km/h cruising, near-miss combos, radar minimap, nitro fire* |
+| **3D Vehicle Showroom & Tuning** | **Mission Terminal & Contracts** |
+| <img src="./public/screenshots/garage-showroom.jpg" alt="3D Garage Showroom" width="100%" /> | <img src="./public/screenshots/mission-terminal.png" alt="Mission Terminal" width="100%" /> |
+| *360° interactive turntable, stage upgrades & custom visual tuning* | *Daily contracts, career milestones & claimable coin bounties* |
+
+---
 
 ## Highlights
 

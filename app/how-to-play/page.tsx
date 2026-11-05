@@ -1,561 +1,645 @@
 'use client';
 
+import { useState } from 'react';
+import Link from 'next/link';
 import styled from 'styled-components';
 import {
-  ArrowRight,
-  Car,
+  ArrowLeft,
+  ChevronRight,
   Flag,
   Fuel,
   Gauge,
   Gamepad2,
   Heart,
   Keyboard,
-  ListChecks,
+  Shield,
   Smartphone,
   Sparkles,
   Target,
-  Trophy,
   Zap,
 } from 'lucide-react';
-import { PageShell } from '@/components/layout/PageShell';
-import { ButtonLink } from '@/components/ui/Button';
-import { Badge, Panel, PanelLabel, SectionKicker, StatRow } from '@/components/ui/Panel';
-import { DAILY_MISSION_COUNT, LONG_TERM_MISSIONS } from '@/lib/data/missions';
-import { TROPHIES } from '@/lib/data/trophies';
 import { useGameStore } from '@/lib/store/useGameStore';
 import { formatKeyCode } from '@/lib/ui/format';
+import { getAudioManager } from '@/lib/audio/AudioManager';
 import { media } from '@/lib/ui/theme';
 
-const Grid = styled.div`
+const Stage = styled.div`
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #030507;
+  color: var(--text);
+  padding: clamp(16px, 3vw, 32px);
+  user-select: none;
+`;
+
+const ContentWrap = styled.div`
+  max-width: 1080px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+`;
+
+const TopNav = styled.header`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+`;
+
+const BackPill = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  background: rgba(10, 14, 18, 0.82);
+  backdrop-filter: blur(10px);
+  color: var(--text);
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 13px;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: var(--lime);
+    color: var(--lime);
+    transform: translateX(-3px);
+  }
+`;
+
+const HeaderTitle = styled.div`
+  h1 {
+    font-family: ${({ theme }) => theme.fonts.display};
+    font-size: clamp(28px, 4vw, 42px);
+    font-style: italic;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+
+    em {
+      color: var(--lime);
+      font-style: inherit;
+    }
+  }
+
+  span {
+    color: var(--text-dim);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+`;
+
+const RaceLinkBtn = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 4px;
+  border: 1px solid var(--lime);
+  background: var(--lime);
+  color: #07090b;
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 13px;
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #e6ff66;
+    transform: scale(1.02);
+  }
+`;
+
+const TerminalPanel = styled.div`
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: rgba(10, 14, 18, 0.88);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+`;
+
+const PanelHead = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.2);
+
+  .title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    svg {
+      color: var(--lime);
+    }
+
+    h2 {
+      font-family: ${({ theme }) => theme.fonts.display};
+      font-size: 16px;
+      font-style: italic;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+  }
+`;
+
+const ControlTabs = styled.div`
+  display: flex;
+  gap: 4px;
+`;
+
+const ControlTabBtn = styled.button<{ $active: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 3px;
+  border: 1px solid ${({ $active }) => ($active ? 'var(--lime)' : 'transparent')};
+  background: ${({ $active }) => ($active ? 'rgba(215, 255, 63, 0.15)' : 'transparent')};
+  color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text-dim)')};
+  font-family: ${({ theme }) => theme.fonts.mono};
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: var(--text);
+  }
+`;
+
+const ControlBody = styled.div`
+  padding: 16px 20px;
+`;
+
+const KeyGrid = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+
+  ${media.mobile} {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const KeyItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 14px;
+  padding: 12px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+
+  .label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .badges {
+    display: flex;
+    gap: 4px;
+
+    kbd {
+      min-width: 30px;
+      min-height: 26px;
+      display: inline-grid;
+      place-items: center;
+      padding: 0 8px;
+      border: 1px solid var(--line-strong);
+      border-bottom-color: rgba(215, 255, 63, 0.4);
+      border-radius: 3px;
+      background: rgba(215, 255, 63, 0.08);
+      color: var(--lime);
+      font-family: ${({ theme }) => theme.fonts.mono};
+      font-size: 10px;
+      font-weight: 800;
+    }
+  }
+`;
+
+const SystemsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 
   ${media.desktop} {
     grid-template-columns: 1fr;
   }
 `;
 
-const Card = styled(Panel)`
-  padding: clamp(20px, 3vw, 30px);
-`;
-
-const CardHead = styled.div`
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 16px;
-
-  svg {
-    color: ${({ theme }) => theme.colors.lime};
-    flex: 0 0 auto;
-    margin-top: 2px;
-  }
-
-  h3 {
-    font-family: ${({ theme }) => theme.fonts.display};
-    font-size: 22px;
-    text-transform: uppercase;
-    font-style: italic;
-    line-height: 1;
-  }
-  p {
-    margin-top: 6px;
-    color: var(--text-muted);
-    font-size: 11px;
-    line-height: 1.6;
-  }
-`;
-
-const Text = styled.p`
-  color: ${({ theme }) => theme.colors.textMuted};
-  font-size: 12px;
-  line-height: 1.8;
-`;
-
-const ControlTable = styled.div`
+const SystemCard = styled.div`
+  padding: 18px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: rgba(10, 14, 18, 0.88);
   display: flex;
   flex-direction: column;
-`;
+  gap: 10px;
 
-const ControlRow = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 10px 0;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
-  font-size: 11px;
-
-  &:last-child {
-    border-bottom: 0;
-  }
-
-  span {
-    color: ${({ theme }) => theme.colors.textMuted};
-  }
-`;
-
-const Keys = styled.div`
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-
-  kbd {
-    min-width: 28px;
-    min-height: 25px;
-    display: inline-grid;
-    place-items: center;
-    padding: 0 7px;
-    border: 1px solid var(--line-strong);
-    border-bottom-color: rgba(255, 255, 255, 0.32);
-    border-radius: 3px;
-    background: rgba(255, 255, 255, 0.035);
-    color: var(--text);
-    font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-  }
-`;
-
-const Steps = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-`;
-
-const Step = styled.div`
-  display: flex;
-  gap: 14px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--line);
-  &:last-child {
-    border-bottom: 0;
-    padding-bottom: 0;
-  }
-  b {
-    width: 26px;
-    height: 26px;
-    flex: 0 0 auto;
-    display: grid;
-    place-items: center;
-    border-radius: 50%;
-    border: 1px solid rgba(215, 255, 63, 0.35);
-    background: rgba(215, 255, 63, 0.08);
-    color: var(--lime);
-    font-family: var(--font-mono);
-    font-size: 10px;
-  }
-  strong {
-    display: block;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-  span {
-    display: block;
-    margin-top: 5px;
-    color: var(--text-muted);
-    font-size: 11px;
-    line-height: 1.6;
-  }
-`;
-
-const ToneRow = styled.div<{ $color: string }>`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 11px 0;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
-
-  &:last-child {
-    border-bottom: 0;
-  }
-
-  span {
+  .head {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: ${({ theme }) => theme.colors.textMuted};
-    font-size: 11px;
+
+    svg {
+      color: var(--lime);
+    }
+
+    h3 {
+      font-family: ${({ theme }) => theme.fonts.display};
+      font-size: 15px;
+      font-style: italic;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
   }
-  b {
-    color: ${({ $color }) => $color};
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
+
+  p {
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 1.6;
+  }
+
+  .metric-tag {
+    align-self: flex-start;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--lime);
+    font-family: ${({ theme }) => theme.fonts.mono};
+    font-size: 9px;
+    font-weight: 800;
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
 `;
 
-const TipGrid = styled.div`
+const TipsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-top: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 
-  ${media.tablet} {
+  ${media.desktop} {
     grid-template-columns: 1fr;
   }
 `;
 
-const Tip = styled.div`
-  padding: 16px;
+const TipCard = styled.div`
+  padding: 18px;
+  border-radius: 6px;
   border: 1px solid var(--line);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.018);
-  svg {
-    color: var(--lime);
-    margin-bottom: 10px;
-  }
-  strong {
-    display: block;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-  p {
-    margin-top: 6px;
-    color: var(--text-muted);
-    font-size: 10px;
-    line-height: 1.65;
-  }
-`;
-
-const CTA = styled(Panel)`
-  margin-top: 14px;
-  padding: 26px;
+  background: rgba(10, 14, 18, 0.6);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
-  background:
-    radial-gradient(ellipse at 0% 50%, rgba(215, 255, 63, 0.08), transparent 60%),
-    var(--panel);
-  h3 {
+  flex-direction: column;
+  gap: 8px;
+
+  .idx {
     font-family: ${({ theme }) => theme.fonts.display};
-    font-size: clamp(24px, 3vw, 36px);
-    text-transform: uppercase;
+    font-size: 24px;
     font-style: italic;
+    font-weight: 900;
+    color: var(--lime);
     line-height: 1;
   }
+
+  strong {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
   p {
-    margin-top: 8px;
-    color: var(--text-muted);
+    color: var(--text-dim);
     font-size: 11px;
+    line-height: 1.6;
   }
 `;
 
 export default function HowToPlayPage() {
+  const [controlTab, setControlTab] = useState<'keyboard' | 'gamepad' | 'touch'>('keyboard');
   const bindings = useGameStore((state) => state.settings.controls.keybindings);
-  const difficulty = useGameStore((state) => state.settings.gameplay.difficulty);
+
+  const switchTab = (tab: 'keyboard' | 'gamepad' | 'touch') => {
+    setControlTab(tab);
+    getAudioManager().playCue('ui');
+  };
 
   return (
-    <PageShell
-      kicker="Driver briefing"
-      title={
-        <>
-          Learn the <em>rush.</em>
-        </>
-      }
-      intro="Highway Rush is a free-steering endless racer. Keep the car alive, keep the combo alive, and reach the finish gate before the fuel runs dry."
-      actions={
-        <ButtonLink href="/play" size="sm" icon={<Flag size={13} />}>
-          Start driving
-        </ButtonLink>
-      }
-      wide
-    >
-      <Grid>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Card>
-            <CardHead>
-              <Target size={20} />
-              <div>
-                <h3>The objective</h3>
-                <p>Survive the highway and cross the finish gate.</p>
-              </div>
-            </CardHead>
-            <Text>
-              Race mode sets a distance target for the route you choose. Reach it to bank a finish
-              bonus. Endless mode removes the finish line and keeps scaling traffic until you crash,
-              run dry or quit. Either way, your score, distance and coins are saved at the end of the
-              run.
-            </Text>
-            <Steps style={{ marginTop: 16 }}>
-              <Step>
-                <b>1</b>
-                <div>
-                  <strong>Pick a car and route</strong>
-                  <span>Garage builds and destination unlocks are permanent on this device.</span>
-                </div>
-              </Step>
-              <Step>
-                <b>2</b>
-                <div>
-                  <strong>Thread traffic, collect coins</strong>
-                  <span>Near misses build a combo multiplier. Coins spawn in clusters across lanes.</span>
-                </div>
-              </Step>
-              <Step>
-                <b>3</b>
-                <div>
-                  <strong>Manage fuel, health and nitro</strong>
-                  <span>Checkpoints restore fuel. Impacts drain health. Nitro burns a rechargeable tank.</span>
-                </div>
-              </Step>
-              <Step>
-                <b>4</b>
-                <div>
-                  <strong>Cross the line, bank the record</strong>
-                  <span>Results feed statistics, daily missions and the trophy room automatically.</span>
-                </div>
-              </Step>
-            </Steps>
-          </Card>
+    <Stage>
+      <ContentWrap>
+        <TopNav>
+          <BackPill href="/">
+            <ArrowLeft size={16} /> Main Menu
+          </BackPill>
 
-          <Card>
-            <CardHead>
-              <Keyboard size={20} />
-              <div>
-                <h3>Keyboard controls</h3>
-                <p>Default bindings. Every key can be changed in Settings.</p>
-              </div>
-            </CardHead>
-            <ControlTable>
-              <ControlRow>
-                <span>Steer left / right</span>
-                <Keys>
-                  <kbd>{formatKeyCode(bindings.steerLeft)}</kbd>
-                  <kbd>{formatKeyCode(bindings.steerRight)}</kbd>
-                </Keys>
-              </ControlRow>
-              <ControlRow>
-                <span>Accelerate / brake</span>
-                <Keys>
-                  <kbd>{formatKeyCode(bindings.accelerate)}</kbd>
-                  <kbd>{formatKeyCode(bindings.brake)}</kbd>
-                </Keys>
-              </ControlRow>
-              <ControlRow>
-                <span>Nitro</span>
-                <Keys>
-                  <kbd>{formatKeyCode(bindings.nitro)}</kbd>
-                </Keys>
-              </ControlRow>
-              <ControlRow>
-                <span>Pause</span>
-                <Keys>
-                  <kbd>{formatKeyCode(bindings.pause)}</kbd>
-                </Keys>
-              </ControlRow>
-              <ControlRow>
-                <span>Camera orbit (garage / map)</span>
-                <Keys>
-                  <kbd>Drag</kbd>
-                </Keys>
-              </ControlRow>
-            </ControlTable>
-          </Card>
+          <HeaderTitle>
+            <span>Operations Field Manual</span>
+            <h1>
+              Flight Deck <em>Controls</em>
+            </h1>
+          </HeaderTitle>
 
-          <Card>
-            <CardHead>
-              <Smartphone size={20} />
-              <div>
-                <h3>Touch &amp; gamepad</h3>
-                <p>Playable on phones, tablets and controllers.</p>
-              </div>
-            </CardHead>
-            <Text>
-              Pick a steering method in Settings: <b>Auto</b>, <b>Tilt</b>, <b>Touch buttons</b>,{' '}
-              <b>Touch drag</b>, <b>Keyboard</b> or <b>Gamepad</b>. Auto uses the gyroscope when the
-              device has one and falls back to buttons if motion access is unavailable.
-            </Text>
-            <Text style={{ marginTop: 10 }}>
-              Tilt steering asks for motion access only when you start a race or tap <b>Test sensor</b>.
-              Hold the phone comfortably, steer by tilting, and tap <b>Re-centre</b> in the HUD to set
-              a new neutral angle. Touch drag turns the whole road surface into a steering pad. Touch
-              buttons use a left/right pad, brake paddle and nitro button. Gamepads are detected
-              automatically.
-            </Text>
-            <div style={{ marginTop: 14 }}>
-              <ToneRow $color="var(--lime)">
-                <span>
-                  <Gamepad2 size={12} /> Left stick / D-pad
-                </span>
-                <b>Steer</b>
-              </ToneRow>
-              <ToneRow $color="var(--lime)">
-                <span>
-                  <Gamepad2 size={12} /> RT / A
-                </span>
-                <b>Accelerate</b>
-              </ToneRow>
-              <ToneRow $color="var(--lime)">
-                <span>
-                  <Gamepad2 size={12} /> LT / B
-                </span>
-                <b>Brake</b>
-              </ToneRow>
-              <ToneRow $color="var(--lime)">
-                <span>
-                  <Gamepad2 size={12} /> RB / X / Y
-                </span>
-                <b>Nitro</b>
-              </ToneRow>
-              <ToneRow $color="var(--lime)">
-                <span>
-                  <Gamepad2 size={12} /> Start
-                </span>
-                <b>Pause</b>
-              </ToneRow>
+          <RaceLinkBtn href="/play">
+            <Flag size={14} /> Start Driving
+          </RaceLinkBtn>
+        </TopNav>
+
+        {/* CONTROLS TERMINAL */}
+        <TerminalPanel>
+          <PanelHead>
+            <div className="title-group">
+              <Keyboard size={16} />
+              <h2>Control Bindings</h2>
             </div>
-          </Card>
-        </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Card>
-            <CardHead>
-              <Sparkles size={20} />
-              <div>
-                <h3>Systems</h3>
-                <p>What the HUD is telling you.</p>
-              </div>
-            </CardHead>
-            <ToneRow $color="var(--lime)">
-              <span>
-                <Heart size={12} /> Health
-              </span>
-              <b>Crash damage</b>
-            </ToneRow>
-            <ToneRow $color="var(--warning)">
-              <span>
-                <Fuel size={12} /> Fuel
-              </span>
-              <b>Drains constantly</b>
-            </ToneRow>
-            <ToneRow $color="var(--info)">
-              <span>
-                <Zap size={12} /> Nitro
-              </span>
-              <b>Recharges over time</b>
-            </ToneRow>
-            <ToneRow $color="var(--purple)">
-              <span>
-                <Gauge size={12} /> Combo
-              </span>
-              <b>Near-miss multiplier</b>
-            </ToneRow>
-            <ToneRow $color="var(--lime)">
-              <span>
-                <Flag size={12} /> Checkpoints
-              </span>
-              <b>Fuel + score bonus</b>
-            </ToneRow>
-            <ToneRow $color="var(--text)">
-              <span>
-                <Car size={12} /> Gear &amp; RPM
-              </span>
-              <b>Manual-style auto box</b>
-            </ToneRow>
-          </Card>
+            <ControlTabs>
+              <ControlTabBtn
+                $active={controlTab === 'keyboard'}
+                onClick={() => switchTab('keyboard')}
+              >
+                <Keyboard size={12} /> Keyboard
+              </ControlTabBtn>
+              <ControlTabBtn
+                $active={controlTab === 'gamepad'}
+                onClick={() => switchTab('gamepad')}
+              >
+                <Gamepad2 size={12} /> Gamepad
+              </ControlTabBtn>
+              <ControlTabBtn
+                $active={controlTab === 'touch'}
+                onClick={() => switchTab('touch')}
+              >
+                <Smartphone size={12} /> Mobile / Tilt
+              </ControlTabBtn>
+            </ControlTabs>
+          </PanelHead>
 
-          <Card>
-            <CardHead>
-              <ListChecks size={20} />
-              <div>
-                <h3>Scoring</h3>
-                <p>Everything stacks into your final score.</p>
-              </div>
-            </CardHead>
-            <StatRow>
-              <span>Distance</span>
-              <strong style={{ fontSize: 16 }}>2 pts / m + speed</strong>
-            </StatRow>
-            <StatRow>
-              <span>Near miss</span>
-              <strong style={{ fontSize: 16 }}>150 × multiplier</strong>
-            </StatRow>
-            <StatRow>
-              <span>Coin</span>
-              <strong style={{ fontSize: 16 }}>35 × multiplier + 1 coin</strong>
-            </StatRow>
-            <StatRow>
-              <span>Checkpoint</span>
-              <strong style={{ fontSize: 16 }}>600 + 150 × index</strong>
-            </StatRow>
-            <StatRow>
-              <span>Finish bonus</span>
-              <strong style={{ fontSize: 16 }}>5,000 pts</strong>
-            </StatRow>
-            <StatRow>
-              <span>Drift</span>
-              <strong style={{ fontSize: 16 }}>4 pts / m</strong>
-            </StatRow>
-            <div style={{ marginTop: 14 }}>
-              <Badge $tone="info">Current difficulty · {difficulty}</Badge>
+          <ControlBody>
+            {controlTab === 'keyboard' && (
+              <KeyGrid>
+                <KeyItem>
+                  <span className="label">Steer Left / Right</span>
+                  <div className="badges">
+                    <kbd>{formatKeyCode(bindings.steerLeft)}</kbd>
+                    <kbd>{formatKeyCode(bindings.steerRight)}</kbd>
+                  </div>
+                </KeyItem>
+
+                <KeyItem>
+                  <span className="label">Throttle / Brake</span>
+                  <div className="badges">
+                    <kbd>{formatKeyCode(bindings.accelerate)}</kbd>
+                    <kbd>{formatKeyCode(bindings.brake)}</kbd>
+                  </div>
+                </KeyItem>
+
+                <KeyItem>
+                  <span className="label">Nitro Afterburner</span>
+                  <div className="badges">
+                    <kbd>{formatKeyCode(bindings.nitro)}</kbd>
+                  </div>
+                </KeyItem>
+
+                <KeyItem>
+                  <span className="label">Pause Simulation</span>
+                  <div className="badges">
+                    <kbd>{formatKeyCode(bindings.pause)}</kbd>
+                  </div>
+                </KeyItem>
+
+                <KeyItem>
+                  <span className="label">Secondary Steer</span>
+                  <div className="badges">
+                    <kbd>LEFT</kbd>
+                    <kbd>RIGHT</kbd>
+                  </div>
+                </KeyItem>
+
+                <KeyItem>
+                  <span className="label">Secondary Throttle</span>
+                  <div className="badges">
+                    <kbd>UP</kbd>
+                    <kbd>DOWN</kbd>
+                  </div>
+                </KeyItem>
+              </KeyGrid>
+            )}
+
+            {controlTab === 'gamepad' && (
+              <KeyGrid>
+                <KeyItem>
+                  <span className="label">Steering Axis</span>
+                  <div className="badges">
+                    <kbd>LEFT STICK / D-PAD</kbd>
+                  </div>
+                </KeyItem>
+
+                <KeyItem>
+                  <span className="label">Progressive Throttle</span>
+                  <div className="badges">
+                    <kbd>RIGHT TRIGGER (RT) / A</kbd>
+                  </div>
+                </KeyItem>
+
+                <KeyItem>
+                  <span className="label">Hydraulic Brakes</span>
+                  <div className="badges">
+                    <kbd>LEFT TRIGGER (LT) / B</kbd>
+                  </div>
+                </KeyItem>
+
+                <KeyItem>
+                  <span className="label">Nitro Injector</span>
+                  <div className="badges">
+                    <kbd>RIGHT BUMPER (RB) / X</kbd>
+                  </div>
+                </KeyItem>
+
+                <KeyItem>
+                  <span className="label">Pause / Menu</span>
+                  <div className="badges">
+                    <kbd>START / MENU</kbd>
+                  </div>
+                </KeyItem>
+
+                <KeyItem>
+                  <span className="label">Camera View Orbit</span>
+                  <div className="badges">
+                    <kbd>RIGHT STICK</kbd>
+                  </div>
+                </KeyItem>
+              </KeyGrid>
+            )}
+
+            {controlTab === 'touch' && (
+              <KeyGrid>
+                <KeyItem>
+                  <span className="label">Gyroscope Tilt Steering</span>
+                  <div className="badges">
+                    <kbd>PHYSICAL DEVICE TILT</kbd>
+                  </div>
+                </KeyItem>
+
+                <KeyItem>
+                  <span className="label">Touch Screen Steering Pad</span>
+                  <div className="badges">
+                    <kbd>ON-SCREEN ARROWS</kbd>
+                  </div>
+                </KeyItem>
+
+                <KeyItem>
+                  <span className="label">Touch Drag Surface</span>
+                  <div className="badges">
+                    <kbd>DRAG HORIZONTALLY</kbd>
+                  </div>
+                </KeyItem>
+
+                <KeyItem>
+                  <span className="label">Nitro Quick Tap</span>
+                  <div className="badges">
+                    <kbd>NITRO BUTTON (RIGHT)</kbd>
+                  </div>
+                </KeyItem>
+              </KeyGrid>
+            )}
+          </ControlBody>
+        </TerminalPanel>
+
+        {/* TACTICAL SYSTEMS */}
+        <SystemsGrid>
+          <SystemCard>
+            <div className="head">
+              <Heart size={16} />
+              <h3>Structural Hull &amp; Health</h3>
             </div>
-          </Card>
+            <p>
+              Direct collisions with traffic or roadside barriers reduce vehicle integrity. Maintain separation to avoid catastrophic vehicle failure.
+            </p>
+            <div className="metric-tag">Damage Recovery: Nil</div>
+          </SystemCard>
 
-          <Card>
-            <CardHead>
-              <Trophy size={20} />
-              <div>
-                <h3>Progression</h3>
-                <p>Nothing is paywalled behind a timer.</p>
-              </div>
-            </CardHead>
-            <Text>
-              Coins come from runs, near misses, daily missions and trophies. Cars and destinations
-              also check performance requirements such as races completed, near misses and trophy
-              count. Daily objectives are generated from the date and reset at local midnight.
-            </Text>
-            <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Badge $tone="lime">{TROPHIES.length} trophies</Badge>
-              <Badge $tone="purple">{LONG_TERM_MISSIONS.length} career objectives</Badge>
-              <Badge $tone="warning">{DAILY_MISSION_COUNT} daily missions</Badge>
+          <SystemCard>
+            <div className="head">
+              <Zap size={16} />
+              <h3>Dual Nitro Afterburner</h3>
             </div>
-          </Card>
+            <p>
+              Ignites high-octane nitrous through dual exhaust pipes, kicking the camera FOV back and accelerating past traffic at peak velocity.
+            </p>
+            <div className="metric-tag">Recharges Automatically</div>
+          </SystemCard>
 
-          <CTA>
-            <div>
-              <SectionKicker>Ready</SectionKicker>
-              <h3>Seat time is the only teacher.</h3>
-              <p>Your current car and route are already set.</p>
+          <SystemCard>
+            <div className="head">
+              <Target size={16} />
+              <h3>Near-Miss Multiplier</h3>
             </div>
-            <ButtonLink href="/play" size="lg" icon={<ArrowRight size={15} />}>
-              Hit the highway
-            </ButtonLink>
-          </CTA>
-        </div>
-      </Grid>
+            <p>
+              Threading closely between civilian vehicles without contact triggers near-miss bonuses and scales the score multiplier rapidly.
+            </p>
+            <div className="metric-tag">+150 PTS × MULTIPLIER</div>
+          </SystemCard>
 
-      <div style={{ marginTop: 14 }}>
-        <PanelLabel>Driver tips</PanelLabel>
-        <TipGrid>
-          <Tip>
-            <Target size={17} />
-            <strong>Steer, don&apos;t snap</strong>
-            <p>Hold a line instead of tapping. Smooth inputs preserve speed and let the drift model work.</p>
-          </Tip>
-          <Tip>
-            <Zap size={17} />
-            <strong>Save nitro for gaps</strong>
-            <p>A full tank is worth more on a clear straight than in dense traffic. Check the radar first.</p>
-          </Tip>
-          <Tip>
-            <Heart size={17} />
-            <strong>Protect the streak</strong>
-            <p>Crash-free distance is a trophy metric. One wall tap costs more than a missed coin.</p>
-          </Tip>
-        </TipGrid>
-      </div>
-    </PageShell>
+          <SystemCard>
+            <div className="head">
+              <Fuel size={16} />
+              <h3>Fuel &amp; Checkpoints</h3>
+            </div>
+            <p>
+              High-speed driving steadily consumes fuel. Cross marked highway checkpoints before the tank empties to restore fuel and earn bonus points.
+            </p>
+            <div className="metric-tag">+15-25% TANK PER GATE</div>
+          </SystemCard>
+
+          <SystemCard>
+            <div className="head">
+              <Gauge size={16} />
+              <h3>Adaptive Traffic Radar</h3>
+            </div>
+            <p>
+              The cockpit radar maps civil traffic up to 100 metres ahead. Scan ahead for slow-moving trucks and clear lanes before firing nitro.
+            </p>
+            <div className="metric-tag">Real-Time Canvas Radar</div>
+          </SystemCard>
+
+          <SystemCard>
+            <div className="head">
+              <Sparkles size={16} />
+              <h3>Coin Pickups &amp; Unlocks</h3>
+            </div>
+            <p>
+              Collected coins are deposited permanently to your driver balance for garage tuning, visual customizations, and unlocking new destination tracks.
+            </p>
+            <div className="metric-tag">Permanent Bank</div>
+          </SystemCard>
+        </SystemsGrid>
+
+        {/* RACING TACTICS */}
+        <TerminalPanel>
+          <PanelHead>
+            <div className="title-group">
+              <Shield size={16} />
+              <h2>Tactical Racing Directives</h2>
+            </div>
+          </PanelHead>
+
+          <ControlBody>
+            <TipsGrid>
+              <TipCard>
+                <div className="idx">01</div>
+                <strong>Preserve Apex Velocity</strong>
+                <p>
+                  Avoid sharp erratic steering inputs. Smooth steering lines minimise lateral tire scrub and maintain maximum top-end acceleration.
+                </p>
+              </TipCard>
+
+              <TipCard>
+                <div className="idx">02</div>
+                <strong>Deploy Nitro in High-Speed Gaps</strong>
+                <p>
+                  Do not trigger nitro in blind clusters. Consult the HUD radar and fire the afterburner when straightaways present an open trajectory.
+                </p>
+              </TipCard>
+
+              <TipCard>
+                <div className="idx">03</div>
+                <strong>Protect the Chain</strong>
+                <p>
+                  Every near-miss and collected checkpoint compounds your score. A single scrape wipes out the combo multiplier.
+                </p>
+              </TipCard>
+            </TipsGrid>
+          </ControlBody>
+        </TerminalPanel>
+      </ContentWrap>
+    </Stage>
   );
 }

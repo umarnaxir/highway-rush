@@ -12,6 +12,7 @@ interface PreviewCanvasProps {
   destination?: DestinationDefinition;
   quality?: Quality;
   invertCamera?: boolean;
+  lateralShift?: number;
   className?: string;
   ariaLabel?: string;
 }
@@ -27,6 +28,7 @@ export function PreviewCanvas({
   destination,
   quality = 'high',
   invertCamera = false,
+  lateralShift = 0,
   className,
   ariaLabel = 'Interactive 3D preview',
 }: PreviewCanvasProps) {
@@ -58,6 +60,7 @@ export function PreviewCanvas({
           customization: configRef.current.customization,
           destination,
           invertCamera,
+          lateralShift,
         });
         engineRef.current = engine;
         setReady(true);
@@ -73,7 +76,7 @@ export function PreviewCanvas({
       if (engineRef.current === engine) engineRef.current = null;
       engineRef.current = null;
     };
-  }, [mode, quality, destination?.id, invertCamera, destination]);
+  }, [mode, quality, destination?.id, invertCamera, lateralShift, destination]);
 
   useEffect(() => {
     engineRef.current?.updateCar(car, customization);

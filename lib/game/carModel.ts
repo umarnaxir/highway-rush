@@ -29,6 +29,7 @@ export interface CarModel {
   bodyMaterial: THREE.MeshPhysicalMaterial;
   accentMaterials: THREE.MeshStandardMaterial[];
   paint: THREE.Color;
+  exhaustPositions: Array<{ x: number; y: number; z: number }>;
   setPaint: (color: string) => void;
   setBrake: (active: boolean) => void;
   setWheelSpin: (radians: number) => void;
@@ -318,11 +319,14 @@ export function createCarModel(options: CarVisualOptions): CarModel {
   }
 
   // Exhaust tips.
+  const exhaustPositions: Array<{ x: number; y: number; z: number }> = [];
   for (const side of [-1, 1]) {
     const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.18, 10), trimMaterial);
     exhaust.rotation.x = Math.PI / 2;
-    exhaust.position.set(side * 0.42, 0.45, length / 2 + 0.06);
+    const exPos = { x: side * 0.42, y: 0.45, z: length / 2 + 0.06 };
+    exhaust.position.set(exPos.x, exPos.y, exPos.z);
     group.add(exhaust);
+    exhaustPositions.push(exPos);
   }
 
   // Paint decals.
@@ -448,6 +452,7 @@ export function createCarModel(options: CarVisualOptions): CarModel {
     bodyMaterial,
     accentMaterials,
     paint,
+    exhaustPositions,
     setPaint,
     setBrake,
     setWheelSpin,

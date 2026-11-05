@@ -332,7 +332,7 @@ export function buildEnvironment(
   };
 
   scene.background = new THREE.Color(theme.sky);
-  scene.fog = new THREE.Fog(theme.fog, preview ? theme.fogNear * 0.4 : theme.fogNear, preview ? theme.fogFar * 0.55 : theme.fogFar);
+  scene.fog = new THREE.Fog(theme.fog, theme.fogNear * 0.75, theme.fogFar);
 
   // Lighting ---------------------------------------------------------------------
   const hemisphere = new THREE.HemisphereLight(
@@ -495,7 +495,7 @@ export function buildEnvironment(
     root.add(centerGlow);
   }
 
-  // Dashed lane markings scroll toward the camera.
+  // Dashed lane markings using high-performance InstancedMesh (1 draw call instead of 132).
   const dashGeometry = new THREE.BoxGeometry(0.13, 0.035, 3.8);
   const dashMaterial = new THREE.MeshStandardMaterial({
     color: theme.lane,
@@ -503,36 +503,62 @@ export function buildEnvironment(
     emissive: destination.environment === 'neon' ? theme.lane : '#000000',
     emissiveIntensity: destination.environment === 'neon' ? 0.4 : 0,
   });
-  const dashes: THREE.Mesh[] = [];
   const dashSpacing = 13;
   const dashCount = Math.ceil(ROAD_LENGTH / dashSpacing);
+  const totalDashes = LANE_DIVIDERS.length * dashCount;
+  const dashInstanced = new THREE.InstancedMesh(dashGeometry, dashMaterial, totalDashes);
+  dashInstanced.receiveShadow = quality !== 'low';
+  const dashPositions: Float32Array = new Float32Array(totalDashes * 2); // [x, z, x, z, ...]
+  const dummyObject = new THREE.Object3D();
+
+  let dashIndex = 0;
   for (const x of LANE_DIVIDERS) {
     for (let i = 0; i < dashCount; i += 1) {
-      const dash = new THREE.Mesh(dashGeometry, dashMaterial);
-      dash.position.set(x, 0.015, ROAD_START_Z - i * dashSpacing);
-      root.add(dash);
-      dashes.push(dash);
+      const z = ROAD_START_Z - i * dashSpacing;
+      dashPositions[dashIndex * 2] = x;
+      dashPositions[dashIndex * 2 + 1] = z;
+      dummyObject.position.set(x, 0.015, z);
+      dummyObject.updateMatrix();
+      dashInstanced.setMatrixAt(dashIndex, dummyObject.matrix);
+      dashIndex += 1;
     }
   }
+  dashInstanced.instanceMatrix.needsUpdate = true;
+  root.add(dashInstanced);
 
-  // Guard rails + posts.
+  // Guard rails + posts (InstancedMesh for posts: 1 draw call instead of 88).
   const railMaterial = new THREE.MeshStandardMaterial({
     color: destination.environment === 'neon' ? '#38235b' : '#6c7580',
     roughness: 0.45,
     metalness: 0.65,
   });
   const postMaterial = mat(destination.environment === 'neon' ? '#2a1a45' : '#59626c', 0.55, 0.55);
+  const postGeometry = new THREE.BoxGeometry(0.1, 0.95, 0.1);
+  const totalPosts = 2 * dashCount;
+  const postInstanced = new THREE.InstancedMesh(postGeometry, postMaterial, totalPosts);
+  postInstanced.castShadow = quality === 'high';
+  postInstanced.receiveShadow = quality !== 'low';
+  const postPositions: Float32Array = new Float32Array(totalPosts * 2);
+
+  let postIndex = 0;
   for (const side of [-1, 1]) {
     const rail = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.22, ROAD_LENGTH), railMaterial);
     rail.position.set(side * (ROAD_WIDTH / 2 + 1.1), 0.72, (ROAD_START_Z + ROAD_END_Z) / 2);
     root.add(rail);
-    const postGeometry = new THREE.BoxGeometry(0.1, 0.95, 0.1);
+
+    const x = side * (ROAD_WIDTH / 2 + 1.1);
     for (let i = 0; i < dashCount; i += 1) {
-      const post = new THREE.Mesh(postGeometry, postMaterial);
-      post.position.set(side * (ROAD_WIDTH / 2 + 1.1), 0.3, ROAD_START_Z - i * dashSpacing);
-      root.add(post);
+      const z = ROAD_START_Z - i * dashSpacing;
+      postPositions[postIndex * 2] = x;
+      postPositions[postIndex * 2 + 1] = z;
+      dummyObject.position.set(x, 0.3, z);
+      dummyObject.updateMatrix();
+      postInstanced.setMatrixAt(postIndex, dummyObject.matrix);
+      postIndex += 1;
     }
   }
+  postInstanced.instanceMatrix.needsUpdate = true;
+  root.add(postInstanced);
 
   // Distant terrain silhouettes.
   const addMountainRange = (color: string, snowCaps: boolean) => {
@@ -659,18 +685,29 @@ export function buildEnvironment(
 
   // Update loop ------------------------------------------------------------------
   const update = (dt: number, distanceDelta: number, speedKph: number) => {
-    if (preview) return;
-    for (const dash of dashes) {
-      dash.position.z += distanceDelta;
-      if (dash.position.z > ROAD_START_Z) dash.position.z -= ROAD_LENGTH;
+    if (distanceDelta === 0 && dt === 0) return;
+
+    // High performance instanced dash updates (all dashes in 1 draw call)
+    for (let i = 0; i < totalDashes; i += 1) {
+      let z = dashPositions[i * 2 + 1] + distanceDelta;
+      if (z > ROAD_START_Z) z -= ROAD_LENGTH;
+      dashPositions[i * 2 + 1] = z;
+      dummyObject.position.set(dashPositions[i * 2], 0.015, z);
+      dummyObject.updateMatrix();
+      dashInstanced.setMatrixAt(i, dummyObject.matrix);
     }
+    dashInstanced.instanceMatrix.needsUpdate = true;
+
+    // Scenery wrap updates
     for (const entry of scenery) {
       entry.object.position.z += distanceDelta;
       if (entry.object.position.z > ROAD_START_Z + 12) {
         entry.object.position.z -= entry.wrap;
       }
     }
+
     if (weather) {
+      const now = performance.now();
       const attr = weather.geometry.getAttribute('position') as THREE.BufferAttribute;
       const positions = attr.array as Float32Array;
       const isLine = weatherType === 'rain';
@@ -688,13 +725,13 @@ export function buildEnvironment(
         } else {
           if (weatherType === 'snow') {
             positions[i + 1] -= weatherSpeed * dt;
-            positions[i] += Math.sin(performance.now() * 0.0007 + i) * dt * 0.8;
+            positions[i] += Math.sin(now * 0.0007 + i) * dt * 0.8;
           } else if (weatherType === 'dust') {
             positions[i + 1] -= 0.25 * dt;
-            positions[i] += Math.sin(performance.now() * 0.001 + i) * dt * 2;
+            positions[i] += Math.sin(now * 0.001 + i) * dt * 2;
           } else {
-            positions[i + 1] += Math.sin(performance.now() * 0.001 + i) * dt * 0.18;
-            positions[i] += Math.cos(performance.now() * 0.0008 + i) * dt * 0.12;
+            positions[i + 1] += Math.sin(now * 0.001 + i) * dt * 0.18;
+            positions[i] += Math.cos(now * 0.0008 + i) * dt * 0.12;
           }
           positions[i + 2] += distanceDelta * (weatherType === 'fireflies' ? 0.25 : 0.8);
           if (positions[i + 1] < 0) positions[i + 1] = weatherType === 'snow' ? 32 : 5 + Math.random() * 24;

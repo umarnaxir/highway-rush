@@ -1,39 +1,38 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import styled from 'styled-components';
-import { motion } from 'motion/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import styled, { keyframes } from 'styled-components';
 import {
+  ArrowLeft,
   Car,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Coins,
+  Flame,
+  Gauge,
   Lock,
   Palette,
   Play,
-  RotateCcw,
   ShieldCheck,
   Sparkles,
+  Unlock,
   Wrench,
+  Zap,
 } from 'lucide-react';
-import { PageShell, TwoCol } from '@/components/layout/PageShell';
-import { Button, ButtonLink, IconButton } from '@/components/ui/Button';
-import { Badge, Panel, PanelLabel, ProgressBar, SectionKicker, StatRow } from '@/components/ui/Panel';
-import { ConfirmDialog } from '@/components/ui/Modal';
 import { PreviewCanvas } from '@/components/game/PreviewCanvas';
 import {
   CARS,
   CARS_BY_ID,
   MAX_UPGRADE_LEVEL,
-  RIM_COLORS,
   UNDERGLOW_COLORS,
   UPGRADE_DEFS,
-  carStatsTotal,
   effectiveCarStats,
   getDefaultCustomization,
   getUpgradeCost,
   getUpgrades,
-  meetsCarRequirement,
-  totalUpgradeLevel,
 } from '@/lib/data/cars';
 import { useGameStore } from '@/lib/store/useGameStore';
 import { getAudioManager } from '@/lib/audio/AudioManager';
@@ -47,14 +46,6 @@ import type {
   WheelStyle,
 } from '@/lib/types';
 import { media } from '@/lib/ui/theme';
-
-const stages = [
-  { key: 'speed', label: 'Top speed' },
-  { key: 'acceleration', label: 'Acceleration' },
-  { key: 'handling', label: 'Handling' },
-  { key: 'braking', label: 'Braking' },
-  { key: 'nitro', label: 'Nitro' },
-] as const;
 
 const paintSwatches = [
   '#d7ff3f',
@@ -72,1061 +63,1131 @@ const paintSwatches = [
 ];
 
 const spoilers: Array<{ value: SpoilerStyle; label: string }> = [
-  { value: 'none', label: 'None' },
+  { value: 'none', label: 'Clean' },
   { value: 'lip', label: 'Lip' },
   { value: 'sport', label: 'Sport' },
   { value: 'gt', label: 'GT Wing' },
 ];
 
-const wheels: Array<{ value: WheelStyle; label: string }> = [
-  { value: 'sport', label: 'Sport' },
-  { value: 'forged', label: 'Forged' },
-  { value: 'stealth', label: 'Stealth' },
-];
-
-const decals: Array<{ value: DecalStyle; label: string }> = [
-  { value: 'none', label: 'Clean' },
-  { value: 'stripe', label: 'Stripe' },
-  { value: 'racing', label: 'Racing' },
-  { value: 'flames', label: 'Flames' },
-];
-
-const Showcase = styled.div`
+const Stage = styled.div`
   position: relative;
-  min-height: 440px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
+  background: #030507;
+  color: var(--text);
+  user-select: none;
+`;
+
+const BackgroundCanvas = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+`;
+
+const Vignette = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
   background:
-    radial-gradient(ellipse at 50% 115%, rgba(215, 255, 63, 0.11), transparent 55%),
-    radial-gradient(ellipse at 80% 10%, rgba(56, 189, 248, 0.06), transparent 45%),
-    linear-gradient(160deg, #111820, #070a0d 70%);
-
-  &::after {
-    content: '';
-    position: absolute;
-    inset: auto 0 0;
-    height: 42%;
-    background: linear-gradient(180deg, transparent, rgba(4, 6, 7, 0.78));
-    pointer-events: none;
-  }
-
-  ${media.mobile} {
-    min-height: 320px;
-  }
+    radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(3, 5, 7, 0.65) 100%),
+    linear-gradient(180deg, rgba(3, 5, 7, 0.85) 0%, transparent 16%, transparent 55%, rgba(3, 5, 7, 0.95) 100%);
 `;
 
-const ShowcaseTop = styled.div`
+const Overlay = styled.div`
   position: absolute;
-  top: 18px;
-  left: 18px;
-  right: 18px;
-  z-index: 3;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
   display: flex;
+  flex-direction: column;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 `;
 
-const ShowcaseBottom = styled.div`
-  position: absolute;
-  left: 22px;
-  right: 22px;
-  bottom: 20px;
-  z-index: 3;
+const TopNav = styled.header`
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-
-  h2 {
-    font-family: ${({ theme }) => theme.fonts.display};
-    font-size: clamp(30px, 4vw, 52px);
-    font-style: italic;
-    line-height: 0.86;
-    text-transform: uppercase;
-    letter-spacing: -0.02em;
-  }
-  p {
-    margin-top: 7px;
-    color: var(--text-muted);
-    font-size: 11px;
-  }
+  pointer-events: auto;
+  width: 100%;
 `;
 
-const InfoPanel = styled(Panel)`
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-`;
-
-const StatBars = styled.div`
-  margin-top: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 11px;
-`;
-
-const StatBar = styled.div`
-  display: grid;
-  grid-template-columns: 84px 1fr 30px;
+const BackPill = styled(Link)`
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  background: rgba(10, 14, 18, 0.84);
+  backdrop-filter: blur(12px);
+  color: var(--text);
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 13px;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: all 0.15s ease;
 
-  span {
-    color: var(--text-muted);
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-  b {
-    color: var(--text);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    text-align: right;
-    font-weight: 700;
-  }
-`;
-
-const TagRow = styled.div`
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: 14px;
-`;
-
-const SpecLedger = styled.dl`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1px;
-  margin: 18px 0 0;
-  border: 1px solid var(--line);
-  background: var(--line);
-  overflow: hidden;
-
-  div {
-    min-width: 0;
-    padding: 10px 11px;
-    background: var(--panel);
-  }
-
-  dt {
-    color: var(--text-dim);
-    font-size: 7px;
-    font-weight: 800;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-  }
-
-  dd {
-    margin: 5px 0 0;
-    color: var(--text);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    line-height: 1.35;
-    overflow-wrap: anywhere;
+  &:hover {
+    border-color: var(--lime);
+    color: var(--lime);
+    transform: translateX(-3px);
   }
 `;
 
-const AssetNote = styled.p`
-  margin: 12px 0 0;
-  color: var(--text-dim);
-  font-size: 9px;
-  line-height: 1.65;
-
-  strong {
-    color: var(--text-muted);
-    font-weight: 700;
-  }
-`;
-
-const Customizer = styled(Panel)`
-  margin-top: 16px;
-  padding: clamp(20px, 3vw, 30px);
-`;
-
-const CustomGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 36px;
-
-  ${media.desktop} {
-    gap: 0 26px;
-  }
-  ${media.mobile} {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const Group = styled.div`
-  padding: 18px 0;
-  border-bottom: 1px solid var(--line);
-
-  &:last-child {
-    border-bottom: 0;
-  }
-`;
-
-const GroupLabel = styled.div`
+const ScreenTitle = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
-  color: var(--text-dim);
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
+  color: var(--text-dim);
 
-  svg {
+  span {
     color: var(--lime);
+  }
+
+  ${media.mobile} {
+    display: none;
   }
 `;
 
-const Swatches = styled.div`
+const HeaderStats = styled.div`
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+
+  .stat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 38px;
+    padding: 0 12px;
+    border-radius: 4px;
+    border: 1px solid var(--line-strong);
+    background: rgba(10, 14, 18, 0.84);
+    backdrop-filter: blur(12px);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+
+    svg {
+      color: var(--lime);
+      width: 13px;
+      height: 13px;
+    }
+
+    &.currency {
+      color: var(--warning);
+      border-color: rgba(251, 191, 36, 0.35);
+      font-family: ${({ theme }) => theme.fonts.mono};
+      svg {
+        color: var(--warning);
+      }
+    }
+  }
+`;
+
+/* CENTERED HERO SECTION */
+const CenterHero = styled.div`
+  pointer-events: auto;
+  margin: auto auto 12px auto;
+  max-width: 880px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 0 12px;
+`;
+
+const KickerBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(215, 255, 63, 0.35);
+  background: rgba(215, 255, 63, 0.08);
+  color: var(--lime);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+`;
+
+const HeroTitle = styled.h1`
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: clamp(32px, 5vw, 64px);
+  font-style: italic;
+  font-weight: 900;
+  line-height: 0.88;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 6px 36px rgba(0, 0, 0, 0.9);
+  margin: 0;
+
+  em {
+    color: var(--lime);
+    font-style: inherit;
+    margin-left: 6px;
+  }
+`;
+
+/* 4-COLUMN CENTERED TELEMETRY MATRIX */
+const TelemetryGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  width: 100%;
+  max-width: 680px;
+  margin: 2px auto 0 auto;
+
+  ${media.mobile} {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+`;
+
+const TelemetryBox = styled.div`
+  background: rgba(10, 14, 18, 0.82);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 8px 10px;
+  backdrop-filter: blur(10px);
+  text-align: left;
+
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+
+    b {
+      color: var(--text);
+      font-family: ${({ theme }) => theme.fonts.mono};
+      font-size: 9px;
+    }
+  }
+
+  .meter {
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+
+    .fill {
+      height: 100%;
+      border-radius: inherit;
+      background: var(--lime);
+      box-shadow: 0 0 8px rgba(215, 255, 63, 0.45);
+      transition: width 0.3s ease;
+    }
+  }
+`;
+
+const pulseGlow = keyframes`
+  0%, 100% { box-shadow: 0 0 24px rgba(215, 255, 63, 0.4), 0 0 50px rgba(215, 255, 63, 0.15); }
+  50% { box-shadow: 0 0 38px rgba(215, 255, 63, 0.65), 0 0 75px rgba(215, 255, 63, 0.3); }
+`;
+
+const MainActionBtn = styled.button<{ $locked?: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 290px;
+  padding: 15px 30px;
+  border-radius: 4px;
+  border: none;
+  background: ${({ $locked }) => ($locked ? '#f59e0b' : 'var(--lime)')};
+  color: #07090b;
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 16px;
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  animation: ${pulseGlow} 2.6s infinite ease-in-out;
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  text-decoration: none;
+
+  &:hover:not(:disabled) {
+    transform: scale(1.03);
+    background: ${({ $locked }) => ($locked ? '#fbbf24' : '#e6ff66')};
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    background: var(--line-strong);
+    color: var(--text-dim);
+    animation: none;
+    box-shadow: none;
+  }
+
+  ${media.mobile} {
+    width: 100%;
+    min-width: 0;
+    padding: 13px 20px;
+  }
+`;
+
+/* CENTERED STUDIO CONTROLS */
+const StudioContainer = styled.div`
+  pointer-events: auto;
+  width: 100%;
+  max-width: 1060px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+`;
+
+const TabRow = styled.div`
+  display: flex;
+  gap: 6px;
+  background: rgba(10, 14, 18, 0.85);
+  padding: 4px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  backdrop-filter: blur(14px);
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+`;
+
+const TabBtn = styled.button<{ $active: boolean }>`
+  display: inline-flex;
+  align-items: center;
   gap: 7px;
+  padding: 7px 14px;
+  border-radius: 4px;
+  border: 1px solid ${({ $active }) => ($active ? 'var(--lime)' : 'transparent')};
+  background: ${({ $active }) => ($active ? 'rgba(215, 255, 63, 0.16)' : 'transparent')};
+  color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text-muted)')};
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 11px;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: var(--text);
+  }
+`;
+
+/* CAROUSEL SHELF FOR MACHINE ROSTER */
+const CarouselWrap = styled.div`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+const ArrowNavBtn = styled.button`
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  background: rgba(10, 14, 18, 0.85);
+  backdrop-filter: blur(12px);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: var(--lime);
+    color: var(--lime);
+    background: rgba(215, 255, 63, 0.12);
+    transform: scale(1.05);
+  }
+
+  ${media.mobile} {
+    display: none;
+  }
+`;
+
+const TrackRail = styled.div`
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 6px 4px;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  width: 100%;
+
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(215, 255, 63, 0.25);
+    border-radius: 2px;
+  }
+`;
+
+const CarCard = styled.button<{ $active: boolean; $locked: boolean }>`
+  min-width: 136px;
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  border-radius: 5px;
+  border: 1px solid
+    ${({ $active, theme }) => ($active ? theme.colors.lime : 'var(--line-strong)')};
+  background: ${({ $active }) =>
+    $active ? 'rgba(215, 255, 63, 0.16)' : 'rgba(10, 14, 18, 0.86)'};
+  backdrop-filter: blur(14px);
+  box-shadow: ${({ $active }) =>
+    $active ? '0 0 20px rgba(215, 255, 63, 0.35)' : '0 8px 24px rgba(0, 0, 0, 0.5)'};
+  text-align: left;
+  cursor: pointer;
+  transform: ${({ $active }) => ($active ? 'translateY(-3px)' : 'none')};
+  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  opacity: ${({ $locked }) => ($locked ? 0.65 : 1)};
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text-dim)')};
+    margin-bottom: 4px;
+  }
+
+  strong {
+    display: block;
+    font-family: ${({ theme }) => theme.fonts.display};
+    font-size: 12px;
+    font-style: italic;
+    font-weight: 900;
+    text-transform: uppercase;
+    color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text)')};
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-bottom {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  &:hover {
+    border-color: var(--lime);
+    transform: translateY(-4px);
+    background: rgba(215, 255, 63, 0.1);
+  }
+`;
+
+/* TUNING GRID PANEL */
+const TuningGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  width: 100%;
+  max-width: 880px;
+
+  ${media.desktop} {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  ${media.mobile} {
+    grid-template-columns: 1fr;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+`;
+
+const UpgradeCard = styled.div`
+  padding: 14px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: rgba(10, 14, 18, 0.88);
+  backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+
+  .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+
+    .icon-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text);
+      svg {
+        color: var(--lime);
+      }
+    }
+  }
+
+  .dots {
+    display: flex;
+    gap: 4px;
+    i {
+      flex: 1;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      &.on {
+        background: var(--lime);
+        box-shadow: 0 0 8px rgba(215, 255, 63, 0.5);
+      }
+    }
+  }
+
+  .desc {
+    font-size: 9px;
+    color: var(--text-dim);
+    line-height: 1.3;
+  }
+`;
+
+const UpgradeBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(215, 255, 63, 0.4);
+  background: rgba(215, 255, 63, 0.12);
+  color: var(--lime);
+  font-family: ${({ theme }) => theme.fonts.mono};
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(215, 255, 63, 0.24);
+    border-color: var(--lime);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    border-color: var(--line);
+    color: var(--text-dim);
+  }
+`;
+
+/* VISUAL CUSTOMIZATION PANEL */
+const VisualsPanel = styled.div`
+  width: 100%;
+  max-width: 820px;
+  padding: 16px 20px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: rgba(10, 14, 18, 0.88);
+  backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+
+  ${media.mobile} {
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .section-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+
+    label {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      min-width: 110px;
+    }
+  }
+`;
+
+const SwatchRow = styled.div`
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
   align-items: center;
 `;
 
 const Swatch = styled.button<{ $color: string; $active: boolean }>`
-  position: relative;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  border: 2px solid ${({ $active }) => ($active ? 'var(--text)' : 'rgba(255,255,255,.16)')};
+  border: 2px solid ${({ $active }) => ($active ? 'var(--lime)' : 'rgba(255,255,255,.18)')};
   background: ${({ $color }) => $color};
-  box-shadow: ${({ $active, $color }) => ($active ? `0 0 0 3px ${$color}33` : 'none')};
-  transition: all 0.15s ease;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: ${({ $active }) => ($active ? '0 0 10px rgba(215, 255, 63, 0.6)' : 'none')};
+  transition: transform 0.15s ease;
 
   &:hover {
-    transform: scale(1.08);
-  }
-
-  svg {
-    position: absolute;
-    inset: 0;
-    margin: auto;
-    color: ${({ $color }) => (isLight($color) ? '#0b0f13' : '#fff')};
+    transform: scale(1.18);
   }
 `;
-
-function isLight(hex: string): boolean {
-  const value = hex.replace('#', '');
-  if (value.length !== 6) return false;
-  const r = parseInt(value.slice(0, 2), 16);
-  const g = parseInt(value.slice(2, 4), 16);
-  const b = parseInt(value.slice(4, 6), 16);
-  return (r * 299 + g * 587 + b * 114) / 1000 > 165;
-}
 
 const PillRow = styled.div`
   display: flex;
-  flex-wrap: wrap;
   gap: 6px;
-`;
-
-const UpgradeStack = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-`;
-
-const UpgradeRow = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 11px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.018);
-
-  strong {
-    display: block;
-    color: var(--text);
-    font-size: 10px;
-    letter-spacing: 0.03em;
-  }
-
-  span {
-    display: block;
-    margin-top: 2px;
-    color: var(--text-dim);
-    font-size: 8px;
-    line-height: 1.45;
-  }
-`;
-
-const UpgradeDots = styled.div`
-  display: flex;
-  gap: 3px;
-  margin-top: 6px;
-
-  i {
-    width: 16px;
-    height: 3px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.12);
-  }
-
-  i[data-on='true'] {
-    background: var(--lime);
-    box-shadow: 0 0 8px rgba(215, 255, 63, 0.3);
-  }
-`;
-
-const UpgradeButton = styled.button`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-width: 92px;
-  min-height: 34px;
-  padding: 0 10px;
-  border: 1px solid rgba(215, 255, 63, 0.35);
-  border-radius: 3px;
-  background: rgba(215, 255, 63, 0.07);
-  color: var(--lime);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 700;
-  transition: all 0.15s ease;
-
-  &:hover:not(:disabled) {
-    background: rgba(215, 255, 63, 0.14);
-    border-color: rgba(215, 255, 63, 0.6);
-  }
-
-  &:disabled {
-    color: var(--text-dim);
-    border-color: var(--line);
-    background: rgba(255, 255, 255, 0.02);
-    cursor: not-allowed;
-  }
-`;
-
-const UpgradeNote = styled.p`
-  margin: 10px 0 0;
-  color: var(--text-dim);
-  font-size: 8px;
-  line-height: 1.6;
-`;
-
-const Pill = styled.button<{ $active: boolean }>`
-  min-height: 31px;
-  padding: 0 12px;
-  border-radius: 3px;
-  border: 1px solid ${({ $active }) => ($active ? 'rgba(215,255,63,.55)' : 'var(--line)')};
-  background: ${({ $active }) => ($active ? 'rgba(215,255,63,.1)' : 'rgba(255,255,255,.02)')};
-  color: ${({ $active, theme }) => ($active ? theme.colors.lime : theme.colors.textMuted)};
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  transition: all 0.15s ease;
-
-  &:hover {
-    color: ${({ theme }) => theme.colors.text};
-    border-color: ${({ theme }) => theme.colors.lineStrong};
-  }
-`;
-
-const Roster = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 16px;
-
-  ${media.desktop} {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  ${media.tablet} {
-    display: flex;
-    gap: 10px;
-    margin-inline: calc(-1 * clamp(16px, 3vw, 36px));
-    padding: 2px clamp(16px, 3vw, 36px) 10px;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x mandatory;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
-
-    > * {
-      flex: 0 0 min(72vw, 250px);
-      scroll-snap-align: start;
-    }
-  }
-`;
-
-const CarCard = styled.button<{ $active: boolean; $owned: boolean }>`
-  position: relative;
-  text-align: left;
-  padding: 16px 15px;
-  min-height: 134px;
-  border-radius: 5px;
-  border: 1px solid
-    ${({ $active, theme }) =>
-      $active ? theme.colors.lime : 'var(--line)'};
-  background: ${({ $active }) =>
-    $active
-      ? 'linear-gradient(150deg, rgba(215,255,63,.09), rgba(255,255,255,.02))'
-      : 'rgba(255,255,255,.018)'};
-  overflow: hidden;
-  transition: all 0.18s ease;
-
-  &:hover {
-    border-color: ${({ $active, theme }) => ($active ? theme.colors.lime : theme.colors.lineStrong)};
-    transform: translateY(-2px);
-  }
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: var(--accent);
-    opacity: ${({ $active, $owned }) => ($active ? 1 : $owned ? 0.55 : 0.22)};
-  }
-
-  &::after {
-    content: '';
-    position: absolute;
-    right: -20px;
-    bottom: -26px;
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    background: var(--accent);
-    opacity: 0.07;
-    filter: blur(10px);
-  }
-`;
-
-const MotionCarCard = motion.create(CarCard);
-
-const CardTop = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  color: var(--text-dim);
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-`;
-
-const CardName = styled.strong`
-  display: block;
-  margin-top: 12px;
-  font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 18px;
-  line-height: 0.95;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
-  position: relative;
-  z-index: 1;
-`;
-
-const CardMeta = styled.div`
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 14px;
-  color: ${({ theme }) => theme.colors.textDim};
-  font-size: 9px;
-  font-weight: 700;
-
-  svg {
-    color: ${({ theme }) => theme.colors.textDim};
-  }
-`;
-
-const RequirementBox = styled.div`
-  margin-top: 14px;
-  padding: 12px 14px;
-  border: 1px solid rgba(251, 191, 36, 0.26);
-  background: rgba(251, 191, 36, 0.05);
-  border-radius: 4px;
-  color: var(--warning);
-  font-size: 10px;
-  line-height: 1.6;
-`;
-
-const ActionRow = styled.div`
-  display: flex;
-  gap: 8px;
-  margin-top: 18px;
   flex-wrap: wrap;
+`;
+
+const OptionPill = styled.button<{ $active: boolean }>`
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid ${({ $active }) => ($active ? 'var(--lime)' : 'var(--line-strong)')};
+  background: ${({ $active }) => ($active ? 'rgba(215,255,63,.14)' : 'rgba(255,255,255,.03)')};
+  color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text-muted)')};
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: var(--text);
+    border-color: var(--lime);
+  }
 `;
 
 export default function GaragePage() {
-  const selectedCarStore = useGameStore((state) => state.selectedCar);
-  const ownedCars = useGameStore((state) => state.ownedCars);
-  const customizations = useGameStore((state) => state.customizations);
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'roster' | 'upgrades' | 'customize'>('roster');
+  const [activeCarId, setActiveCarId] = useState<string | null>(null);
+  const railRef = useRef<HTMLDivElement>(null);
+
   const coins = useGameStore((state) => state.coins);
-  const stats = useGameStore((state) => state.stats);
-  const unlockedTrophies = useGameStore((state) => state.unlockedTrophies);
-  const quality = useGameStore((state) =>
-    state.settings.graphics.performanceMode ? 'low' : state.settings.graphics.effects,
-  );
-  const invertCamera = useGameStore((state) => state.settings.controls.invertCamera);
+  const ownedCars = useGameStore((state) => state.ownedCars);
+  const selectedCarId = useGameStore((state) => state.selectedCar);
   const selectCar = useGameStore((state) => state.selectCar);
   const purchaseCar = useGameStore((state) => state.purchaseCar);
-  const updateCustomization = useGameStore((state) => state.updateCustomization);
   const purchaseUpgrade = useGameStore((state) => state.purchaseUpgrade);
-  const recordCustomization = useGameStore((state) => state.recordCustomization);
+  const updateCustomization = useGameStore((state) => state.updateCustomization);
+  const customizations = useGameStore((state) => state.customizations);
   const pushToast = useUiStore((state) => state.pushToast);
 
-  const [browsedId, setBrowsedId] = useState(selectedCarStore);
-  const [buying, setBuying] = useState(false);
-
-  const car = CARS_BY_ID[browsedId] ?? CARS[0];
-  const customization = customizations[car.id] ?? getDefaultCustomization(car);
-  const upgrades = getUpgrades(customization);
-  const effectiveStats = effectiveCarStats(car, customization);
-  const owned = ownedCars.includes(car.id);
-  const trophyCount = Object.keys(unlockedTrophies).length;
-  const requirement = useMemo(
-    () => meetsCarRequirement(car, stats, trophyCount),
-    [car, stats, trophyCount],
+  const displayedCarId = activeCarId ?? selectedCarId;
+  const car = useMemo(
+    () => CARS_BY_ID[displayedCarId] ?? CARS[0],
+    [displayedCarId],
   );
-  const selectedCustomPaint = customization.paint;
+  const customization = useMemo(
+    () => customizations[car.id] ?? getDefaultCustomization(car),
+    [customizations, car],
+  );
+  const stats = useMemo(() => effectiveCarStats(car, customization), [car, customization]);
+  const upgrades = useMemo(() => getUpgrades(customization), [customization]);
+  const isOwned = ownedCars.includes(car.id);
+  const isSelected = selectedCarId === car.id;
 
-  const changeCar = (id: string) => {
-    setBrowsedId(id);
-    if (ownedCars.includes(id)) selectCar(id);
+  const handleCarSelect = useCallback((id: string) => {
+    setActiveCarId(id);
     getAudioManager().playCue('ui');
-  };
+  }, []);
 
-  const apply = (patch: Partial<CarCustomization>, commit = true) => {
-    updateCustomization(car.id, patch);
-    if (commit) {
-      recordCustomization();
-      getAudioManager().playCue('ui');
-    }
-  };
+  const handlePrev = useCallback(() => {
+    const idx = CARS.findIndex((c) => c.id === car.id);
+    const prevIdx = idx > 0 ? idx - 1 : CARS.length - 1;
+    handleCarSelect(CARS[prevIdx].id);
+  }, [car.id, handleCarSelect]);
 
-  const handleBuy = () => {
-    const result = purchaseCar(car.id);
+  const handleNext = useCallback(() => {
+    const idx = CARS.findIndex((c) => c.id === car.id);
+    const nextIdx = idx < CARS.length - 1 ? idx + 1 : 0;
+    handleCarSelect(CARS[nextIdx].id);
+  }, [car.id, handleCarSelect]);
+
+  const handleEquip = useCallback(() => {
+    selectCar(car.id);
+    getAudioManager().playCue('confirm');
     pushToast({
-      kind: result.ok ? 'success' : 'error',
-      title: result.ok ? `${car.name} acquired` : 'Purchase failed',
-      message: result.message,
+      kind: 'success',
+      title: `${car.name} Equipped`,
+      message: 'Active machine ready for the highway.',
     });
-    if (result.ok) {
-      setBrowsedId(car.id);
+  }, [car.id, car.name, pushToast, selectCar]);
+
+  const handleBuy = useCallback(() => {
+    const res = purchaseCar(car.id);
+    if (res.ok) {
       getAudioManager().playCue('purchase');
+      selectCar(car.id);
+      pushToast({
+        kind: 'success',
+        title: `${car.name} Unlocked`,
+        message: 'Permanent addition to your collection.',
+      });
+    } else {
+      getAudioManager().playCue('error');
+      pushToast({ kind: 'error', title: 'Insufficient Coins', message: res.message });
     }
-  };
+  }, [car.id, car.name, purchaseCar, pushToast, selectCar]);
 
-  const handleUpgrade = (key: UpgradeKey) => {
-    const result = purchaseUpgrade(car.id, key);
-    pushToast({
-      kind: result.ok ? 'success' : 'error',
-      title: result.ok ? 'Upgrade fitted' : 'Upgrade unavailable',
-      message: result.message,
-    });
-    if (result.ok) getAudioManager().playCue('purchase');
-  };
+  const handleUpgrade = useCallback((key: UpgradeKey) => {
+    const res = purchaseUpgrade(car.id, key);
+    if (res.ok) {
+      getAudioManager().playCue('purchase');
+      pushToast({
+        kind: 'success',
+        title: `${titleCase(key)} Tuned`,
+        message: 'Stage upgraded successfully.',
+      });
+    } else {
+      getAudioManager().playCue('error');
+      pushToast({ kind: 'error', title: 'Upgrade Failed', message: res.message });
+    }
+  }, [car.id, purchaseUpgrade, pushToast]);
+
+  const applyCustomization = useCallback((patch: Partial<CarCustomization>) => {
+    const next = { ...customization, ...patch };
+    updateCustomization(car.id, next);
+    getAudioManager().playCue('ui');
+  }, [car.id, customization, updateCustomization]);
+
+  // Keyboard controls for carousel and action execution
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (activeTab === 'roster') {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          handlePrev();
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          handleNext();
+        }
+      }
+      if (e.key === 'Enter') {
+        if (!isOwned && coins >= car.price) {
+          handleBuy();
+        } else if (isOwned && !isSelected) {
+          handleEquip();
+        } else if (isSelected) {
+          router.push('/play');
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, car.price, coins, handleBuy, handleEquip, handleNext, handlePrev, isOwned, isSelected, router]);
+
+  // Keep active card centered in the roster rail
+  useEffect(() => {
+    const activeEl = railRef.current?.querySelector<HTMLElement>(`[data-car-id="${car.id}"]`);
+    if (activeEl) {
+      activeEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }, [car.id, activeTab]);
 
   return (
-    <PageShell
-      kicker="Performance workshop"
-      title={
-        <>
-          Your <em>garage.</em>
-        </>
-      }
-      intro="Every machine is saved locally with its own paint, footwear and aero. Browse the roster, build your spec, then take it to the highway."
-      actions={
-        <>
-          <Badge $tone="warning">
-            <Coins size={10} /> {formatNumber(coins)}
-          </Badge>
-          <ButtonLink href="/play" size="sm" icon={<Play size={13} fill="currentColor" />}>
-            Race
-          </ButtonLink>
-        </>
-      }
-      wide
-    >
-      <TwoCol $ratio="minmax(0, 1.55fr) minmax(0, 0.85fr)">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-          <Showcase>
-            <ShowcaseTop>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <Badge $tone={owned ? 'lime' : 'neutral'}>{owned ? 'Owned' : 'Locked'}</Badge>
-                <Badge>{titleCase(car.className)}</Badge>
-                {selectedCarStore === car.id && <Badge $tone="info">Active</Badge>}
-              </div>
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  color: 'var(--text-dim)',
-                  fontSize: 8,
-                  fontWeight: 800,
-                  letterSpacing: '.18em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                <Sparkles size={11} /> Live 3D
-              </span>
-            </ShowcaseTop>
-            <PreviewCanvas
-              car={car}
-              customization={customization}
-              quality={quality}
-              invertCamera={invertCamera}
-              ariaLabel={`${car.name} preview with current customisation`}
-            />
-            <ShowcaseBottom>
-              <div>
-                <p style={{ letterSpacing: '.18em', textTransform: 'uppercase', fontSize: 8 }}>
-                  {car.brand} · {car.tagline}
-                </p>
-                <h2>{car.name}</h2>
-              </div>
-              <span className="sr-only">{car.description}</span>
-            </ShowcaseBottom>
-          </Showcase>
+    <Stage>
+      {/* 3D Interactive Turntable Showroom */}
+      <BackgroundCanvas>
+        <PreviewCanvas
+          car={car}
+          customization={customization}
+          mode="car"
+          quality="high"
+          ariaLabel={`${car.name} 3D Showroom`}
+        />
+      </BackgroundCanvas>
 
-          <Customizer>
-            <div className="garage-custom-head" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              <div>
-                <SectionKicker>Build sheet</SectionKicker>
-                <h3
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 26,
-                    textTransform: 'uppercase',
-                    fontStyle: 'italic',
-                    lineHeight: 1,
-                  }}
-                >
-                  Make it yours
-                </h3>
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <Badge $tone="lime">
-                  <Wrench size={10} /> {stats.customizationChanges} changes
-                </Badge>
-                <IconButton
-                  $size={32}
-                  title="Reset build"
-                  aria-label="Reset build to default"
-                  onClick={() => {
-                    const defaults = getDefaultCustomization(car);
-                    updateCustomization(car.id, defaults);
-                    recordCustomization();
-                    pushToast({ kind: 'info', title: 'Build reset', message: `${car.name} restored to factory spec.` });
-                  }}
-                >
-                  <RotateCcw size={13} />
-                </IconButton>
-              </div>
+      <Vignette />
+
+      <Overlay>
+        {/* TOP BAR */}
+        <TopNav>
+          <BackPill href="/">
+            <ArrowLeft size={16} /> Main Menu
+          </BackPill>
+
+          <ScreenTitle>
+            <Car size={14} /> <span>Vehicle Showroom</span> {'//'} Garage Spec
+          </ScreenTitle>
+
+          <HeaderStats>
+            <div className="stat-pill">
+              <Sparkles size={13} /> {ownedCars.length}/{CARS.length} Owned
             </div>
+            <div className="stat-pill currency">
+              <Coins size={13} /> {formatNumber(coins)}
+            </div>
+          </HeaderStats>
+        </TopNav>
 
-            <CustomGrid>
-              <div>
-                <Group>
-                  <GroupLabel>
-                    <Palette size={12} /> Paint · {selectedCustomPaint.toUpperCase()}
-                  </GroupLabel>
-                  <Swatches>
-                    {paintSwatches.map((color) => (
-                      <Swatch
-                        key={color}
-                        $color={color}
-                        $active={selectedCustomPaint.toLowerCase() === color.toLowerCase()}
-                        aria-label={`Paint ${color}`}
-                        onClick={() => apply({ paint: color })}
-                      >
-                        {selectedCustomPaint.toLowerCase() === color.toLowerCase() && <Check size={13} />}
-                      </Swatch>
-                    ))}
-                    <input
-                      type="color"
-                      value={selectedCustomPaint}
-                      aria-label="Custom paint colour"
-                      onChange={(event) => apply({ paint: event.target.value }, false)}
-                      onBlur={() => {
-                        recordCustomization();
-                        getAudioManager().playCue('ui');
-                      }}
-                      title="Custom paint"
-                    />
-                  </Swatches>
-                </Group>
+        {/* CENTERED HERO WITH SPECS AND CALL TO ACTION */}
+        <CenterHero>
+          <KickerBadge>
+            <Sparkles size={11} /> {car.className.toUpperCase()} CLASS · PERFORMANCE TUNED · HIGHWAY SPEC
+          </KickerBadge>
 
-                <Group>
-                  <GroupLabel>
-                    <Wrench size={12} /> Rims
-                  </GroupLabel>
-                  <Swatches>
-                    {RIM_COLORS.map((color) => (
-                      <Swatch
-                        key={color}
-                        $color={color}
-                        $active={customization.rim.toLowerCase() === color.toLowerCase()}
-                        aria-label={`Rim colour ${color}`}
-                        onClick={() => apply({ rim: color })}
-                      >
-                        {customization.rim.toLowerCase() === color.toLowerCase() && <Check size={13} />}
-                      </Swatch>
-                    ))}
-                  </Swatches>
-                </Group>
+          <HeroTitle>{car.name}</HeroTitle>
 
-                <Group>
-                  <GroupLabel>
-                    <Sparkles size={12} /> Underglow
-                  </GroupLabel>
-                  <Swatches>
-                    <button
+          {/* 4-COLUMN CENTERED PERFORMANCE TELEMETRY */}
+          <TelemetryGrid>
+            <TelemetryBox>
+              <div className="head">
+                <span>Top Speed</span>
+                <b>{stats.speed} KM/H</b>
+              </div>
+              <div className="meter">
+                <div
+                  className="fill"
+                  style={{ width: `${Math.min(100, (stats.speed / 100) * 100)}%` }}
+                />
+              </div>
+            </TelemetryBox>
+
+            <TelemetryBox>
+              <div className="head">
+                <span>Acceleration</span>
+                <b>{stats.acceleration}</b>
+              </div>
+              <div className="meter">
+                <div
+                  className="fill"
+                  style={{ width: `${Math.min(100, (stats.acceleration / 100) * 100)}%` }}
+                />
+              </div>
+            </TelemetryBox>
+
+            <TelemetryBox>
+              <div className="head">
+                <span>Handling</span>
+                <b>{stats.handling}</b>
+              </div>
+              <div className="meter">
+                <div
+                  className="fill"
+                  style={{ width: `${Math.min(100, (stats.handling / 100) * 100)}%` }}
+                />
+              </div>
+            </TelemetryBox>
+
+            <TelemetryBox>
+              <div className="head">
+                <span>Nitro Boost</span>
+                <b>{stats.nitro}</b>
+              </div>
+              <div className="meter">
+                <div
+                  className="fill"
+                  style={{ width: `${Math.min(100, (stats.nitro / 100) * 100)}%` }}
+                />
+              </div>
+            </TelemetryBox>
+          </TelemetryGrid>
+
+          {/* ACTION CTA BUTTON */}
+          {!isOwned ? (
+            <MainActionBtn
+              type="button"
+              $locked
+              disabled={coins < car.price}
+              onClick={handleBuy}
+            >
+              <Unlock size={18} /> Unlock Machine ({formatNumber(car.price)} Coins)
+            </MainActionBtn>
+          ) : !isSelected ? (
+            <MainActionBtn type="button" onClick={handleEquip}>
+              <Check size={18} /> Equip Machine
+            </MainActionBtn>
+          ) : (
+            <MainActionBtn as={Link} href="/play">
+              <Play size={18} fill="currentColor" /> Select &amp; Race Machine
+            </MainActionBtn>
+          )}
+        </CenterHero>
+
+        {/* CENTERED STUDIO SHELF & CONTROLS */}
+        <StudioContainer>
+          <TabRow>
+            <TabBtn
+              type="button"
+              $active={activeTab === 'roster'}
+              onClick={() => {
+                setActiveTab('roster');
+                getAudioManager().playCue('ui');
+              }}
+            >
+              <Car size={13} /> Machine Roster ({ownedCars.length}/{CARS.length})
+            </TabBtn>
+            <TabBtn
+              type="button"
+              $active={activeTab === 'upgrades'}
+              onClick={() => {
+                setActiveTab('upgrades');
+                getAudioManager().playCue('ui');
+              }}
+            >
+              <Wrench size={13} /> Tuning Stages
+            </TabBtn>
+            <TabBtn
+              type="button"
+              $active={activeTab === 'customize'}
+              onClick={() => {
+                setActiveTab('customize');
+                getAudioManager().playCue('ui');
+              }}
+            >
+              <Palette size={13} /> Visual Customization
+            </TabBtn>
+          </TabRow>
+
+          {/* TAB 1: MACHINE ROSTER HORIZONTAL CAROUSEL */}
+          {activeTab === 'roster' && (
+            <CarouselWrap>
+              <ArrowNavBtn
+                type="button"
+                onClick={handlePrev}
+                aria-label="Previous Vehicle"
+              >
+                <ChevronLeft size={18} />
+              </ArrowNavBtn>
+
+              <TrackRail ref={railRef} role="region" aria-label="Vehicle Roster">
+                {CARS.map((c) => {
+                  const owned = ownedCars.includes(c.id);
+                  const selected = c.id === car.id;
+                  const isCurrentEquipped = selectedCarId === c.id;
+
+                  return (
+                    <CarCard
+                      key={c.id}
+                      data-car-id={c.id}
                       type="button"
-                      aria-label="No underglow"
-                      onClick={() => apply({ underglow: null })}
-                      style={{
-                        width: 30,
-                        height: 30,
-                        borderRadius: '50%',
-                        border: `2px solid ${customization.underglow === null ? 'var(--text)' : 'var(--line-strong)'}`,
-                        background: 'rgba(255,255,255,.03)',
-                        color: 'var(--text-dim)',
-                        display: 'grid',
-                        placeItems: 'center',
-                      }}
+                      $active={selected}
+                      $locked={!owned}
+                      onClick={() => handleCarSelect(c.id)}
                     >
-                      <Check size={11} style={{ opacity: customization.underglow === null ? 1 : 0.3 }} />
-                    </button>
-                    {UNDERGLOW_COLORS.map((color) => (
-                      <Swatch
-                        key={color}
-                        $color={color}
-                        $active={customization.underglow === color}
-                        aria-label={`Underglow ${color}`}
-                        onClick={() => apply({ underglow: color })}
-                      >
-                        {customization.underglow === color && <Check size={13} />}
-                      </Swatch>
-                    ))}
-                  </Swatches>
-                </Group>
-              </div>
+                      <div className="card-top">
+                        <span>{c.className}</span>
+                        {!owned ? (
+                          <Lock size={10} />
+                        ) : isCurrentEquipped ? (
+                          <Check size={10} color="var(--lime)" />
+                        ) : (
+                          <Sparkles size={10} />
+                        )}
+                      </div>
+                      <strong>{c.name}</strong>
+                      <div className="card-bottom">
+                        {isCurrentEquipped ? (
+                          <span style={{ color: 'var(--lime)', fontWeight: 800 }}>EQUIPPED</span>
+                        ) : owned ? (
+                          <span>OWNED</span>
+                        ) : (
+                          <span>{formatNumber(c.price)} COINS</span>
+                        )}
+                      </div>
+                    </CarCard>
+                  );
+                })}
+              </TrackRail>
 
-              <div>
-                <Group>
-                  <GroupLabel>
-                    <ShieldCheck size={12} /> Spoiler
-                  </GroupLabel>
-                  <PillRow>
-                    {spoilers.map((option) => (
-                      <Pill
-                        key={option.value}
-                        $active={customization.spoiler === option.value}
-                        onClick={() => apply({ spoiler: option.value })}
-                      >
-                        {option.label}
-                      </Pill>
-                    ))}
-                  </PillRow>
-                </Group>
-
-                <Group>
-                  <GroupLabel>
-                    <Car size={12} /> Wheels
-                  </GroupLabel>
-                  <PillRow>
-                    {wheels.map((option) => (
-                      <Pill
-                        key={option.value}
-                        $active={customization.wheels === option.value}
-                        onClick={() => apply({ wheels: option.value })}
-                      >
-                        {option.label}
-                      </Pill>
-                    ))}
-                  </PillRow>
-                </Group>
-
-                <Group>
-                  <GroupLabel>
-                    <Sparkles size={12} /> Decals
-                  </GroupLabel>
-                  <PillRow>
-                    {decals.map((option) => (
-                      <Pill
-                        key={option.value}
-                        $active={customization.decal === option.value}
-                        onClick={() => apply({ decal: option.value })}
-                      >
-                        {option.label}
-                      </Pill>
-                    ))}
-                  </PillRow>
-                </Group>
-
-                <Group>
-                  <GroupLabel>
-                    <Wrench size={12} /> Performance upgrades
-                  </GroupLabel>
-                  <UpgradeStack>
-                    {UPGRADE_DEFS.map((upgrade) => {
-                      const level = upgrades[upgrade.key];
-                      const maxed = level >= MAX_UPGRADE_LEVEL;
-                      const cost = getUpgradeCost(car, upgrade.key, level);
-                      return (
-                        <UpgradeRow key={upgrade.key}>
-                          <div>
-                            <strong>{upgrade.label}</strong>
-                            <span>{upgrade.description}</span>
-                            <UpgradeDots
-                              role="img"
-                              aria-label={`${level} of ${MAX_UPGRADE_LEVEL} stages fitted`}
-                            >
-                              {Array.from({ length: MAX_UPGRADE_LEVEL }, (_, index) => (
-                                <i key={index} data-on={index < level} />
-                              ))}
-                            </UpgradeDots>
-                          </div>
-                          <UpgradeButton
-                            type="button"
-                            disabled={!owned || maxed || cost === null || coins < cost}
-                            onClick={() => handleUpgrade(upgrade.key)}
-                            aria-label={
-                              maxed
-                                ? `${upgrade.label} maxed`
-                                : owned
-                                  ? `Fit ${upgrade.label} stage ${level + 1} for ${formatNumber(cost ?? 0)} coins`
-                                  : `Buy this car before fitting ${upgrade.label}`
-                            }
-                          >
-                            {maxed ? (
-                              'Maxed'
-                            ) : !owned ? (
-                              'Locked'
-                            ) : (
-                              <>
-                                <Coins size={10} /> {formatNumber(cost ?? 0)}
-                              </>
-                            )}
-                          </UpgradeButton>
-                        </UpgradeRow>
-                      );
-                    })}
-                  </UpgradeStack>
-                  <UpgradeNote>
-                    Stages are saved with this build and feed straight into the race physics. Buy
-                    the car first to fit parts.
-                  </UpgradeNote>
-                </Group>
-              </div>
-            </CustomGrid>
-          </Customizer>
-        </div>
-
-        <InfoPanel>
-          <PanelLabel>Spec sheet</PanelLabel>
-          <h3
-            style={{
-              marginTop: 10,
-              fontFamily: 'var(--font-display)',
-              fontSize: 'clamp(28px,3vw,38px)',
-              lineHeight: 0.92,
-              textTransform: 'uppercase',
-              fontStyle: 'italic',
-            }}
-          >
-            {car.name}
-          </h3>
-          <p style={{ marginTop: 10, color: 'var(--text-muted)', fontSize: 11, lineHeight: 1.7 }}>
-            {car.description}
-          </p>
-          <TagRow>
-            <Badge $tone="lime">OVR {carStatsTotal(car, customization)}</Badge>
-            <Badge>{car.brand}</Badge>
-            <Badge>{titleCase(car.className)}</Badge>
-            <Badge>{car.powerHp} hp</Badge>
-          </TagRow>
-
-          <SpecLedger aria-label={`${car.name} mechanical specification`}>
-            <div>
-              <dt>Power</dt>
-              <dd>{car.powerHp} hp</dd>
-            </div>
-            <div>
-              <dt>Drivetrain</dt>
-              <dd>{car.drivetrain}</dd>
-            </div>
-            <div>
-              <dt>Gearbox</dt>
-              <dd>{car.gearbox}</dd>
-            </div>
-            <div>
-              <dt>Silhouette</dt>
-              <dd>{titleCase(car.bodyStyle)}</dd>
-            </div>
-            <div>
-              <dt>Engine note</dt>
-              <dd>{titleCase(car.engineProfile.replaceAll('-', ' '))}</dd>
-            </div>
-            <div>
-              <dt>Asset</dt>
-              <dd>{car.asset.kind === 'glb' ? 'Licensed GLB' : 'Procedural'}</dd>
-            </div>
-          </SpecLedger>
-          <AssetNote>
-            <strong>{car.asset.licence}.</strong> {car.asset.note}{' '}
-            {car.asset.assetUrl ? 'Verified asset path configured.' : 'No external model is bundled.'}
-          </AssetNote>
-
-          <StatBars>
-            {stages.map((stage) => (
-              <StatBar key={stage.key}>
-                <span>{stage.label}</span>
-                <ProgressBar value={effectiveStats[stage.key]} color={car.accent} height={4} />
-                <b>{effectiveStats[stage.key]}</b>
-              </StatBar>
-            ))}
-          </StatBars>
-
-          {!owned && (
-            <>
-              <RequirementBox>
-                <strong style={{ display: 'block', marginBottom: 4 }}>
-                  {requirement.met ? 'Requirements met' : 'Locked requirements'}
-                </strong>
-                {requirement.met
-                  ? 'You qualify to purchase this machine.'
-                  : requirement.missing.join(' · ')}
-              </RequirementBox>
-              <ActionRow>
-                <Button
-                  variant="primary"
-                  fullWidth
-                  disabled={coins < car.price || !requirement.met}
-                  onClick={() => setBuying(true)}
-                  icon={<Coins size={14} />}
-                >
-                  Buy for {formatNumber(car.price)}
-                </Button>
-              </ActionRow>
-            </>
-          )}
-
-          {owned && (
-            <ActionRow>
-              {selectedCarStore === car.id ? (
-                <Button variant="secondary" fullWidth disabled icon={<Check size={14} />}>
-                  Active car
-                </Button>
-              ) : (
-                <Button
-                  variant="primary"
-                  fullWidth
-                  onClick={() => {
-                    selectCar(car.id);
-                    getAudioManager().playCue('confirm');
-                    pushToast({ kind: 'success', title: `${car.name} selected`, message: 'Ready for the next run.' });
-                  }}
-                  icon={<Car size={14} />}
-                >
-                  Select this car
-                </Button>
-              )}
-              <ButtonLink href="/play" variant="secondary" fullWidth icon={<Play size={13} />}>
-                Race it
-              </ButtonLink>
-            </ActionRow>
-          )}
-
-          <div style={{ marginTop: 20 }}>
-            <StatRow>
-              <span>Price</span>
-              <strong>{car.price === 0 ? 'Starter' : formatNumber(car.price)}</strong>
-            </StatRow>
-            <StatRow>
-              <span>Status</span>
-              <strong>{owned ? 'In garage' : 'Locked'}</strong>
-            </StatRow>
-            <StatRow>
-              <span>Upgrade count</span>
-              <strong>
-                {owned
-                  ? `${totalUpgradeLevel(customization)} / ${UPGRADE_DEFS.length * MAX_UPGRADE_LEVEL}`
-                  : '—'}
-              </strong>
-            </StatRow>
-          </div>
-        </InfoPanel>
-      </TwoCol>
-
-      <div style={{ marginTop: 38 }}>
-        <SectionKicker>The roster</SectionKicker>
-        <h2
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: 26,
-            textTransform: 'uppercase',
-            fontStyle: 'italic',
-          }}
-        >
-          All machines
-        </h2>
-        <Roster>
-          {CARS.map((item) => {
-            const isOwned = ownedCars.includes(item.id);
-            return (
-              <MotionCarCard
-                key={item.id}
-                $active={item.id === car.id}
-                $owned={isOwned}
-                style={{ ['--accent' as string]: item.accent }}
-                onClick={() => changeCar(item.id)}
-                aria-pressed={item.id === car.id}
-                whileHover={{ y: -3 }}
-                whileTap={{ scale: 0.985 }}
-                transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+              <ArrowNavBtn
+                type="button"
+                onClick={handleNext}
+                aria-label="Next Vehicle"
               >
-                <CardTop>
-                  <span>{item.brand}</span>
-                  {isOwned ? <Check size={12} style={{ color: 'var(--lime)' }} /> : <Lock size={11} />}
-                </CardTop>
-                <CardName>{item.name}</CardName>
-                <CardMeta>
-                  <span>OVR {carStatsTotal(item, customizations[item.id])}</span>
-                  <span>{isOwned ? 'Owned' : `${formatNumber(item.price)} c`}</span>
-                </CardMeta>
-              </MotionCarCard>
-            );
-          })}
-        </Roster>
-      </div>
+                <ChevronRight size={18} />
+              </ArrowNavBtn>
+            </CarouselWrap>
+          )}
 
-      <ConfirmDialog
-        open={buying}
-        onClose={() => setBuying(false)}
-        title={`Acquire ${car.name}?`}
-        message={`This will deduct ${formatNumber(car.price)} coins from your wallet and add the ${car.name} to your garage. Your balance is ${formatNumber(coins)} coins.`}
-        confirmLabel={`Buy · ${formatNumber(car.price)}`}
-        onConfirm={handleBuy}
-      />
-    </PageShell>
+          {/* TAB 2: TUNING STAGES CONSOLE */}
+          {activeTab === 'upgrades' && (
+            <TuningGrid>
+              {UPGRADE_DEFS.map((stg) => {
+                const level = upgrades[stg.key] ?? 0;
+                const maxed = level >= MAX_UPGRADE_LEVEL;
+                const cost = getUpgradeCost(car, stg.key, level);
+
+                const icon =
+                  stg.key === 'engine' ? (
+                    <Zap size={14} />
+                  ) : stg.key === 'tyres' ? (
+                    <Gauge size={14} />
+                  ) : stg.key === 'brakes' ? (
+                    <ShieldCheck size={14} />
+                  ) : (
+                    <Flame size={14} />
+                  );
+
+                return (
+                  <UpgradeCard key={stg.key}>
+                    <div>
+                      <div className="head">
+                        <div className="icon-title">
+                          {icon}
+                          <span>{stg.label}</span>
+                        </div>
+                        <span style={{ color: 'var(--lime)', fontFamily: 'var(--font-mono)' }}>
+                          LVL {level}/{MAX_UPGRADE_LEVEL}
+                        </span>
+                      </div>
+                      <div className="dots" style={{ marginTop: 8 }}>
+                        {Array.from({ length: MAX_UPGRADE_LEVEL }, (_, i) => (
+                          <i key={i} className={i < level ? 'on' : ''} />
+                        ))}
+                      </div>
+                      <p className="desc" style={{ marginTop: 8 }}>
+                        {stg.description}
+                      </p>
+                    </div>
+
+                    <UpgradeBtn
+                      type="button"
+                      disabled={maxed || !isOwned || cost === null || coins < cost}
+                      onClick={() => handleUpgrade(stg.key)}
+                    >
+                      {maxed || cost === null
+                        ? 'MAXED OUT'
+                        : !isOwned
+                          ? 'OWN CAR TO TUNE'
+                          : `+ STAGE ${level + 1} (${formatNumber(cost)} COINS)`}
+                    </UpgradeBtn>
+                  </UpgradeCard>
+                );
+              })}
+            </TuningGrid>
+          )}
+
+          {/* TAB 3: VISUAL CUSTOMIZATION */}
+          {activeTab === 'customize' && (
+            <VisualsPanel>
+              <div className="section-row">
+                <label>Factory Paint</label>
+                <SwatchRow>
+                  {paintSwatches.map((color) => (
+                    <Swatch
+                      key={color}
+                      $color={color}
+                      $active={customization.paint.toLowerCase() === color.toLowerCase()}
+                      onClick={() => applyCustomization({ paint: color })}
+                      aria-label={`Select paint ${color}`}
+                    >
+                      {customization.paint.toLowerCase() === color.toLowerCase() && (
+                        <Check size={11} color="#000" />
+                      )}
+                    </Swatch>
+                  ))}
+                </SwatchRow>
+              </div>
+
+              <div className="section-row">
+                <label>Aero Spoilers</label>
+                <PillRow>
+                  {spoilers.map((sp) => (
+                    <OptionPill
+                      key={sp.value}
+                      $active={customization.spoiler === sp.value}
+                      onClick={() => applyCustomization({ spoiler: sp.value })}
+                    >
+                      {sp.label}
+                    </OptionPill>
+                  ))}
+                </PillRow>
+              </div>
+
+              <div className="section-row">
+                <label>Underglow Neon</label>
+                <SwatchRow>
+                  <button
+                    type="button"
+                    onClick={() => applyCustomization({ underglow: null })}
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: '50%',
+                      border: '1px solid var(--line-strong)',
+                      background: 'none',
+                      color: 'var(--text-dim)',
+                      cursor: 'pointer',
+                      fontSize: 10,
+                      fontWeight: 800,
+                    }}
+                    title="Remove Underglow"
+                  >
+                    ✕
+                  </button>
+                  {UNDERGLOW_COLORS.map((color) => (
+                    <Swatch
+                      key={color}
+                      $color={color}
+                      $active={customization.underglow === color}
+                      onClick={() => applyCustomization({ underglow: color })}
+                      aria-label={`Select underglow ${color}`}
+                    >
+                      {customization.underglow === color && (
+                        <Check size={11} color="#000" />
+                      )}
+                    </Swatch>
+                  ))}
+                </SwatchRow>
+              </div>
+            </VisualsPanel>
+          )}
+        </StudioContainer>
+      </Overlay>
+    </Stage>
   );
 }

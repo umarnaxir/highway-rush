@@ -142,6 +142,18 @@ export class AudioManager {
   private musicLoopToken = 0;
   private musicGainNode: GainNode | null = null;
 
+  private lastAudioUpdate = 0;
+  private lastRpm = -1;
+  private lastThrottle = -1;
+  private lastSpeed = -1;
+  private lastBoosting = false;
+  private lastDrifting = false;
+  private turboOsc: OscillatorNode | null = null;
+  private turboGain: GainNode | null = null;
+  private nitroRumble: AudioBufferSourceNode | null = null;
+  private nitroRumbleGain: GainNode | null = null;
+  private nitroRumbleFilter: BiquadFilterNode | null = null;
+
   private testEngineTimer: ReturnType<typeof setInterval> | null = null;
   private noiseBuffer: AudioBuffer | null = null;
   private volumes: Settings['audio'] = {
@@ -272,6 +284,33 @@ export class AudioManager {
     this.engineOsc2.start();
     this.engineSub.start();
 
+    // Turbo spool oscillator
+    this.turboOsc = ctx.createOscillator();
+    this.turboOsc.type = 'sine';
+    this.turboOsc.frequency.value = 1400;
+    this.turboGain = ctx.createGain();
+    this.turboGain.gain.value = 0;
+    this.turboOsc.connect(this.turboGain);
+    this.turboGain.connect(sfx);
+    this.turboOsc.start();
+
+    // Nitro flame roar
+    if (this.noiseBuffer) {
+      this.nitroRumble = ctx.createBufferSource();
+      this.nitroRumble.buffer = this.noiseBuffer;
+      this.nitroRumble.loop = true;
+      this.nitroRumbleFilter = ctx.createBiquadFilter();
+      this.nitroRumbleFilter.type = 'bandpass';
+      this.nitroRumbleFilter.frequency.value = 450;
+      this.nitroRumbleFilter.Q.value = 3.5;
+      this.nitroRumbleGain = ctx.createGain();
+      this.nitroRumbleGain.gain.value = 0;
+      this.nitroRumble.connect(this.nitroRumbleFilter);
+      this.nitroRumbleFilter.connect(this.nitroRumbleGain);
+      this.nitroRumbleGain.connect(sfx);
+      this.nitroRumble.start();
+    }
+
     this.tireSource = ctx.createBufferSource();
     if (this.noiseBuffer) this.tireSource.buffer = this.noiseBuffer;
     this.tireSource.loop = true;
@@ -310,11 +349,32 @@ export class AudioManager {
   }): void {
     if (!this.ctx || !this.engineStarted) return;
     const now = this.ctx.currentTime;
+    const nowPerf = performance.now();
+
+    // Throttle audio parameter scheduling to 30Hz to prevent audio thread buffer underrun/stutter
+    if (
+      !params.paused &&
+      nowPerf - this.lastAudioUpdate < 32 &&
+      Math.abs(params.rpm - this.lastRpm) < 0.03 &&
+      Math.abs(params.throttle - this.lastThrottle) < 0.04 &&
+      params.boosting === this.lastBoosting &&
+      params.drifting === this.lastDrifting
+    ) {
+      return;
+    }
+    this.lastAudioUpdate = nowPerf;
+    this.lastRpm = params.rpm;
+    this.lastThrottle = params.throttle;
+    this.lastSpeed = params.speedKph;
+    this.lastBoosting = params.boosting;
+    this.lastDrifting = params.drifting;
+
     const rpm = clamp01(params.rpm);
     const profile = ENGINE_PROFILE_CONFIG[this.engineProfile] ?? ENGINE_PROFILE_CONFIG['v8-crossplane'];
-    const targetGain = params.paused ? 0 : 0.075 + params.throttle * 0.07;
-    const baseFreq = profile.base + rpm * profile.sweep + (params.boosting ? 16 : 0);
+    const targetGain = params.paused ? 0 : 0.075 + params.throttle * 0.075 + (params.boosting ? 0.04 : 0);
+    const baseFreq = profile.base + rpm * profile.sweep + (params.boosting ? 18 : 0);
     const filterFreq = profile.filter + rpm * (520 + profile.q * 120) + params.throttle * 520;
+
     if (this.engineOsc1 && this.engineOsc2 && this.engineSub) {
       this.engineOsc1.frequency.setTargetAtTime(baseFreq, now, 0.04);
       this.engineOsc2.frequency.setTargetAtTime(baseFreq * profile.harmonic, now, 0.04);
@@ -326,6 +386,24 @@ export class AudioManager {
     if (this.engineGain) {
       this.engineGain.gain.setTargetAtTime(targetGain, now, 0.07);
     }
+
+    // Turbo spool simulation
+    if (this.turboOsc && this.turboGain) {
+      const turboFreq = 1200 + rpm * 2600 + (params.boosting ? 800 : 0);
+      const turboVolume = params.paused ? 0 : params.throttle * (0.015 + rpm * 0.025) + (params.boosting ? 0.03 : 0);
+      this.turboOsc.frequency.setTargetAtTime(turboFreq, now, 0.08);
+      this.turboGain.gain.setTargetAtTime(turboVolume, now, 0.06);
+    }
+
+    // Nitro flame roar
+    if (this.nitroRumbleGain && this.nitroRumbleFilter) {
+      const nitroVolume = params.boosting && !params.paused ? 0.16 : 0;
+      this.nitroRumbleGain.gain.setTargetAtTime(nitroVolume, now, 0.05);
+      if (params.boosting) {
+        this.nitroRumbleFilter.frequency.setTargetAtTime(380 + Math.random() * 200, now, 0.04);
+      }
+    }
+
     if (this.tireGain) {
       const tire = params.drifting ? 0.09 + clamp01(params.speedKph / 300) * 0.1 : 0;
       this.tireGain.gain.setTargetAtTime(params.paused ? 0 : tire, now, 0.04);
@@ -363,6 +441,8 @@ export class AudioManager {
       this.engineOsc1,
       this.engineOsc2,
       this.engineSub,
+      this.turboOsc,
+      this.nitroRumble,
       this.tireSource,
       this.windSource,
     ];
@@ -377,15 +457,23 @@ export class AudioManager {
     this.engineOsc1 = null;
     this.engineOsc2 = null;
     this.engineSub = null;
+    this.turboOsc = null;
+    this.nitroRumble = null;
     this.tireSource = null;
     this.windSource = null;
     this.engineGain?.disconnect();
+    this.turboGain?.disconnect();
+    this.nitroRumbleGain?.disconnect();
+    this.nitroRumbleFilter?.disconnect();
     this.tireGain?.disconnect();
     this.windGain?.disconnect();
     this.engineFilter?.disconnect();
     this.tireFilter?.disconnect();
     this.windFilter?.disconnect();
     this.engineGain = null;
+    this.turboGain = null;
+    this.nitroRumbleGain = null;
+    this.nitroRumbleFilter = null;
     this.tireGain = null;
     this.windGain = null;
     this.engineFilter = null;

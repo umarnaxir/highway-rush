@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import styled from 'styled-components';
 import {
-  ArrowRight,
+  ArrowLeft,
   Car,
   Code2,
   Cpu,
@@ -14,269 +15,72 @@ import {
   Sparkles,
   Trophy,
   Users,
-  Volume2,
+  Zap,
 } from 'lucide-react';
-import { PageShell } from '@/components/layout/PageShell';
-import { ButtonLink } from '@/components/ui/Button';
-import { Badge, Panel, PanelLabel, SectionKicker } from '@/components/ui/Panel';
-import { TROPHIES } from '@/lib/data/trophies';
 import { CARS } from '@/lib/data/cars';
 import { DESTINATIONS } from '@/lib/data/destinations';
+import { TROPHIES } from '@/lib/data/trophies';
 import { media } from '@/lib/ui/theme';
 
-const Hero = styled(Panel)`
-  position: relative;
-  padding: clamp(28px, 5vw, 56px);
-  overflow: hidden;
-  background:
-    radial-gradient(ellipse at 8% 0%, rgba(215, 255, 63, 0.13), transparent 56%),
-    radial-gradient(ellipse at 92% 100%, rgba(56, 189, 248, 0.08), transparent 52%),
-    linear-gradient(150deg, rgba(255, 255, 255, 0.045), transparent 48%),
-    var(--panel);
-
-  &::after {
-    content: '';
-    position: absolute;
-    top: -40%;
-    right: -8%;
-    width: 380px;
-    height: 380px;
-    border: 1px solid rgba(215, 255, 63, 0.09);
-    border-radius: 50%;
-    box-shadow:
-      0 0 0 44px rgba(215, 255, 63, 0.025),
-      0 0 0 88px rgba(215, 255, 63, 0.015);
-    pointer-events: none;
-  }
-
-  ${media.mobile} {
-    padding: 26px 20px;
-  }
+const Stage = styled.div`
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #030507;
+  color: var(--text);
+  padding: clamp(16px, 3vw, 32px);
+  user-select: none;
 `;
 
-const Eyebrow = styled.div`
+const ContentWrap = styled.div`
+  max-width: 1080px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+`;
+
+const TopNav = styled.header`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+`;
+
+const BackPill = styled(Link)`
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--lime);
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-`;
-
-const Name = styled.h1`
-  position: relative;
-  z-index: 1;
-  max-width: 900px;
-  margin-top: 14px;
-  font-family: ${({ theme }) => theme.fonts.display};
-  font-size: clamp(44px, 8vw, 104px);
-  font-style: italic;
-  font-weight: 900;
-  line-height: 0.82;
-  letter-spacing: -0.045em;
-  text-transform: uppercase;
-
-  em {
-    display: block;
-    color: var(--lime);
-    font-style: inherit;
-  }
-`;
-
-const CreditLine = styled.p`
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 24px;
-  padding: 10px 14px;
-  border: 1px solid rgba(215, 255, 63, 0.34);
-  border-radius: 3px;
-  background: rgba(215, 255, 63, 0.07);
-  color: var(--text);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-
-  svg {
-    color: var(--lime);
-  }
-`;
-
-const Lede = styled.p`
-  position: relative;
-  z-index: 1;
-  max-width: 640px;
-  margin-top: 22px;
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 1.8;
-`;
-
-const StatStrip = styled.div`
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
-  margin-top: 30px;
-  border: 1px solid var(--line);
+  min-height: 38px;
+  padding: 0 14px;
   border-radius: 4px;
-  background: var(--line);
-  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  background: rgba(10, 14, 18, 0.82);
+  backdrop-filter: blur(10px);
+  color: var(--text);
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 13px;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: all 0.15s ease;
 
-  ${media.mobile} {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-`;
-
-const Stat = styled.div`
-  padding: 15px 17px;
-  background: rgba(3, 6, 8, 0.55);
-
-  span {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--text-dim);
-    font-size: 7px;
-    font-weight: 800;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-  }
-
-  svg {
+  &:hover {
+    border-color: var(--lime);
     color: var(--lime);
+    transform: translateX(-3px);
   }
+`;
 
-  strong {
-    display: block;
-    margin-top: 6px;
+const HeaderTitle = styled.div`
+  h1 {
     font-family: ${({ theme }) => theme.fonts.display};
-    font-size: clamp(22px, 2.6vw, 30px);
-    font-weight: 800;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-  }
-`;
-
-const Grid = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-  gap: 14px;
-  margin-top: 14px;
-  align-items: start;
-
-  ${media.desktop} {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const Column = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: 0;
-`;
-
-const Card = styled(Panel)`
-  padding: clamp(20px, 3vw, 30px);
-`;
-
-const CardHead = styled.div`
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 18px;
-
-  > svg {
-    flex: 0 0 auto;
-    margin-top: 2px;
-    color: var(--lime);
-  }
-
-  h2 {
-    font-family: ${({ theme }) => theme.fonts.display};
-    font-size: 23px;
+    font-size: clamp(28px, 4vw, 42px);
     font-style: italic;
+    font-weight: 900;
     line-height: 1;
-    letter-spacing: -0.01em;
-    text-transform: uppercase;
-  }
-
-  p {
-    margin-top: 6px;
-    color: var(--text-muted);
-    font-size: 11px;
-    line-height: 1.6;
-  }
-`;
-
-const Role = styled.div`
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 13px 0;
-  border-bottom: 1px solid var(--line);
-
-  &:last-child {
-    border-bottom: 0;
-    padding-bottom: 0;
-  }
-
-  span {
-    color: var(--text-muted);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    line-height: 1.6;
-    text-transform: uppercase;
-  }
-
-  strong {
-    flex: 0 0 auto;
-    color: var(--text);
-    font-family: ${({ theme }) => theme.fonts.mono};
-    font-size: 10px;
-    font-weight: 700;
-    text-align: right;
-  }
-`;
-
-const Stack = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-`;
-
-const Note = styled.p`
-  color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1.8;
-`;
-
-const Signature = styled(Panel)`
-  margin-top: 14px;
-  padding: clamp(24px, 4vw, 42px);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 26px;
-  flex-wrap: wrap;
-  background:
-    radial-gradient(ellipse at 100% 50%, rgba(215, 255, 63, 0.1), transparent 58%),
-    var(--panel);
-
-  h2 {
-    font-family: ${({ theme }) => theme.fonts.display};
-    font-size: clamp(28px, 4vw, 46px);
-    font-style: italic;
-    line-height: 0.92;
     letter-spacing: -0.02em;
     text-transform: uppercase;
 
@@ -286,280 +90,401 @@ const Signature = styled(Panel)`
     }
   }
 
-  p {
-    max-width: 560px;
-    margin-top: 12px;
+  span {
+    color: var(--text-dim);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+`;
+
+const RaceLinkBtn = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 4px;
+  border: 1px solid var(--lime);
+  background: var(--lime);
+  color: #07090b;
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 13px;
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #e6ff66;
+    transform: scale(1.02);
+  }
+`;
+
+const HeroPanel = styled.div`
+  position: relative;
+  padding: clamp(28px, 4vw, 48px);
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background:
+    radial-gradient(ellipse at 95% 10%, rgba(215, 255, 63, 0.1), transparent 50%),
+    linear-gradient(180deg, rgba(16, 21, 28, 0.95), rgba(7, 10, 14, 0.98));
+  backdrop-filter: blur(14px);
+  overflow: hidden;
+
+  .kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--lime);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+
+  h2 {
+    margin-top: 10px;
+    font-family: ${({ theme }) => theme.fonts.display};
+    font-size: clamp(36px, 6vw, 68px);
+    font-style: italic;
+    font-weight: 900;
+    line-height: 0.9;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+
+    em {
+      color: var(--lime);
+      font-style: inherit;
+    }
+  }
+
+  .creator-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 18px;
+    padding: 6px 14px;
+    border-radius: 3px;
+    border: 1px solid rgba(215, 255, 63, 0.35);
+    background: rgba(215, 255, 63, 0.08);
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+
+    svg {
+      color: var(--lime);
+    }
+  }
+
+  .subhead {
+    max-width: 600px;
+    margin-top: 14px;
     color: var(--text-muted);
     font-size: 12px;
     line-height: 1.7;
   }
 `;
 
-const Legal = styled.p`
-  margin: 18px 0 0;
-  color: var(--text-dim);
-  font-size: 9px;
-  line-height: 1.8;
-  letter-spacing: 0.02em;
+const MetricsStrip = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 24px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: var(--line);
+  overflow: hidden;
 
-  code {
-    color: var(--text-muted);
-    font-family: var(--font-mono);
+  ${media.mobile} {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+`;
+
+const MetricTile = styled.div`
+  padding: 14px 16px;
+  background: rgba(6, 9, 12, 0.85);
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-dim);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+
+    svg {
+      color: var(--lime);
+    }
+  }
+
+  strong {
+    display: block;
+    margin-top: 6px;
+    font-family: ${({ theme }) => theme.fonts.display};
+    font-size: 24px;
+    font-style: italic;
+    font-weight: 900;
+    color: var(--text);
+    line-height: 1;
+  }
+`;
+
+const Grid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+
+  ${media.desktop} {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const TerminalPanel = styled.div`
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: rgba(10, 14, 18, 0.88);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+`;
+
+const PanelHead = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.2);
+
+  svg {
+    color: var(--lime);
+  }
+
+  h3 {
+    font-family: ${({ theme }) => theme.fonts.display};
+    font-size: 16px;
+    font-style: italic;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+`;
+
+const PanelBody = styled.div`
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const RoleRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  span {
+    color: var(--text-dim);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  strong {
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 800;
+  }
+`;
+
+const BadgeCluster = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+`;
+
+const TechTag = styled.div<{ $highlight?: boolean }>`
+  padding: 4px 10px;
+  border-radius: 3px;
+  border: 1px solid ${({ $highlight }) => ($highlight ? 'var(--lime)' : 'var(--line)')};
+  background: ${({ $highlight }) => ($highlight ? 'rgba(215, 255, 63, 0.1)' : 'rgba(255, 255, 255, 0.03)')};
+  color: ${({ $highlight }) => ($highlight ? 'var(--lime)' : 'var(--text-muted)')};
+  font-family: ${({ theme }) => theme.fonts.mono};
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+`;
+
+const TechDesc = styled.p`
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+`;
+
+const FooterNote = styled.div`
+  padding: 16px 20px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  span {
+    color: var(--text-dim);
     font-size: 9px;
+    letter-spacing: 0.05em;
+  }
+
+  strong {
+    color: var(--text);
+    font-family: ${({ theme }) => theme.fonts.mono};
+    font-size: 10px;
   }
 `;
 
 export default function CreditsPage() {
   return (
-    <PageShell
-      kicker="Credits"
-      title={
-        <>
-          The people behind the <em>rush.</em>
-        </>
-      }
-      intro="Highway Rush is an independent, local-first browser racing game. Every route, machine, sound and interface was designed and built for this project."
-      actions={
-        <ButtonLink href="/play" size="sm" icon={<Flag size={13} />}>
-          Back to the highway
-        </ButtonLink>
-      }
-      wide
-    >
-      <Hero>
-        <Eyebrow>
-          <Sparkles size={11} /> Original production · Version 2.0.0
-        </Eyebrow>
-        <Name>
-          Highway
-          <em>Rush.</em>
-        </Name>
-        <CreditLine>
-          <Heart size={12} fill="currentColor" /> Built by Umar Nazir
-        </CreditLine>
-        <Lede>
-          A complete 3D arcade racer that runs entirely in the browser: no installer, no account and
-          no remote game server. Progress and records stay on your device, and the soundtrack is
-          synthesised in real time.
-        </Lede>
-        <StatStrip>
-          <Stat>
-            <span>
-              <Route size={10} /> Routes
-            </span>
-            <strong>{DESTINATIONS.length}</strong>
-          </Stat>
-          <Stat>
-            <span>
-              <Car size={10} /> Machines
-            </span>
-            <strong>{CARS.length}</strong>
-          </Stat>
-          <Stat>
-            <span>
-              <Trophy size={10} /> Trophies
-            </span>
-            <strong>{TROPHIES.length}</strong>
-          </Stat>
-          <Stat>
-            <span>
-              <Gauge size={10} /> Engine
-            </span>
-            <strong>Three.js</strong>
-          </Stat>
-        </StatStrip>
-      </Hero>
+    <Stage>
+      <ContentWrap>
+        <TopNav>
+          <BackPill href="/">
+            <ArrowLeft size={16} /> Main Menu
+          </BackPill>
 
-      <Grid>
-        <Column>
-          <Card>
-            <CardHead>
-              <Users size={20} />
-              <div>
-                <h2>Production</h2>
-                <p>Design, code, content and direction.</p>
-              </div>
-            </CardHead>
-            <Role>
-              <span>Creator &amp; lead developer</span>
-              <strong>Umar Nazir</strong>
-            </Role>
-            <Role>
-              <span>Game design &amp; balance</span>
-              <strong>Umar Nazir</strong>
-            </Role>
-            <Role>
-              <span>UI / UX &amp; interface system</span>
-              <strong>Umar Nazir</strong>
-            </Role>
-            <Role>
-              <span>3D environments &amp; vehicle art direction</span>
-              <strong>Umar Nazir</strong>
-            </Role>
-            <Role>
-              <span>Procedural audio design</span>
-              <strong>Umar Nazir</strong>
-            </Role>
-          </Card>
+          <HeaderTitle>
+            <span>System Information</span>
+            <h1>
+              Production <em>Credits</em>
+            </h1>
+          </HeaderTitle>
 
-          <Card>
-            <CardHead>
-              <Code2 size={20} />
-              <div>
-                <h2>Technology</h2>
-                <p>Open-source tools that make the browser feel like a cockpit.</p>
-              </div>
-            </CardHead>
-            <Stack>
-              <Badge $tone="lime">Next.js App Router</Badge>
-              <Badge $tone="info">React 19</Badge>
-              <Badge $tone="purple">TypeScript</Badge>
-              <Badge $tone="warning">Three.js</Badge>
-              <Badge>styled-components</Badge>
-              <Badge>Zustand</Badge>
-              <Badge>Lucide</Badge>
-              <Badge>Web Audio API</Badge>
-              <Badge>LocalStorage</Badge>
-            </Stack>
-            <Note style={{ marginTop: 18 }}>
-              All geometry, materials, scenery, particles and audio are generated in code at runtime.
-              There are no downloaded models, textures or music files to break or go missing.
-            </Note>
-          </Card>
+          <RaceLinkBtn href="/play">
+            <Flag size={14} /> Back to Highway
+          </RaceLinkBtn>
+        </TopNav>
 
-          <Card>
-            <CardHead>
-              <Cpu size={20} />
-              <div>
-                <h2>Engineering notes</h2>
-                <p>Built for stable frame pacing and clean teardown.</p>
-              </div>
-            </CardHead>
-            <Note>
-              The race engine owns one Three.js renderer per run and disposes every geometry,
-              material, texture, listener and timer when you leave the road. Traffic, checkpoints and
-              coins are pooled rather than recreated. Graphics settings scale shadows, render
-              resolution and effects independently so the game stays playable on integrated GPUs and
-              phones.
-            </Note>
-            <Note style={{ marginTop: 12 }}>
-              Audio begins only after a deliberate tap or keypress, in line with browser autoplay
-              rules. Volume changes and mute state are applied immediately and persisted locally.
-            </Note>
-          </Card>
-        </Column>
-
-        <Column>
-          <Card>
-            <CardHead>
-              <Music2 size={20} />
-              <div>
-                <h2>Sound</h2>
-                <p>Every note is generated, never streamed.</p>
-              </div>
-            </CardHead>
-            <Note>
-              The engine note follows RPM, throttle, gear and speed. Tyre slip, nitro, impacts,
-              pickups and interface cues are layered on top, while each destination gets its own
-              procedural music bed and ambience. The audio graph is suspended when the tab is hidden
-              and torn down when you leave the race.
-            </Note>
-            <Stack style={{ marginTop: 16 }}>
-              <Badge $tone="lime">
-                <Volume2 size={9} /> Engine synthesis
-              </Badge>
-              <Badge $tone="info">Procedural music</Badge>
-              <Badge $tone="purple">Ambience beds</Badge>
-            </Stack>
-          </Card>
-
-          <Card>
-            <CardHead>
-              <Flag size={20} />
-              <div>
-                <h2>Content</h2>
-                <p>Hand-built for this release.</p>
-              </div>
-            </CardHead>
-            <Note>
-              Eight destinations — Kashmir Mountain Pass, Alpine Highway, Dubai Night Drive, Desert
-              Expressway, Coastal Highway, Snow Valley, Forest Route and Tokyo Neon Streets — each
-              carry their own sky, weather, lighting, road furniture and soundtrack. Fourteen
-              real-world-inspired machines span coupe, supercar, saloon, SUV, muscle and electric
-              silhouettes, with per-car paint, rims, wheels, spoilers, decals and underglow saved in
-              your garage.
-            </Note>
-          </Card>
-
-          <Card>
-            <CardHead>
-              <Trophy size={20} />
-              <div>
-                <h2>Acknowledgements</h2>
-                <p>Standing on the shoulders of open source.</p>
-              </div>
-            </CardHead>
-            <Note>
-              Thanks to the maintainers and communities behind Three.js, Next.js, React, TypeScript,
-              styled-components, Zustand and Lucide. Their work is used under the MIT and Apache
-              licences. Thanks also to every player who keeps chasing one more kilometre.
-            </Note>
-            <Note style={{ marginTop: 12 }}>
-              Highway Rush is an independent, fictional arcade experience. Vehicle and route names
-              are used as real-world-inspired references; manufacturer trademarks belong to their
-              respective owners. The game is not affiliated with or endorsed by any vehicle
-              manufacturer. All vehicle geometry, environments and audio are original procedural
-              work produced for this project. No licensed OEM model, location scan or sample pack is
-              bundled.
-            </Note>
-          </Card>
-
-          <Card>
-            <CardHead>
-              <Code2 size={20} />
-              <div>
-                <h2>Press kit</h2>
-                <p>Short description for streams, posts and listings.</p>
-              </div>
-            </CardHead>
-            <Note>
-              <strong style={{ color: 'var(--text)' }}>Highway Rush</strong> is a free 3D endless
-              highway racer for the browser. Thread traffic, chain near misses, manage fuel, health
-              and nitro, and unlock eight routes and fourteen machines. Built by Umar Nazir with
-              Next.js and Three.js.
-            </Note>
-            <Stack style={{ marginTop: 16 }}>
-              <Badge $tone="lime">Free to play</Badge>
-              <Badge>No account</Badge>
-              <Badge>Local saves</Badge>
-              <Badge>Desktop &amp; mobile</Badge>
-            </Stack>
-          </Card>
-        </Column>
-      </Grid>
-
-      <Signature>
-        <div>
-          <SectionKicker>One name on the door</SectionKicker>
+        <HeroPanel>
+          <div className="kicker">
+            <Sparkles size={12} /> Original Browser 3D Production · v2.0.0
+          </div>
           <h2>
-            Built by <em>Umar Nazir.</em>
+            Highway <em>Rush</em>
           </h2>
-          <p>
-            If you enjoyed the drive, the best thanks is another run. The road is always open, and
-            your next personal best is one launch away.
+          <div className="creator-badge">
+            <Heart size={13} fill="currentColor" /> Engineered by Umar Nazir
+          </div>
+          <p className="subhead">
+            A standalone high-performance 3D racing simulator engineered completely for modern web browsers.
+            Procedural Web Audio DSP, GPU instanced geometry, and authentic arcade handling without external asset streams or installations.
           </p>
-        </div>
-        <ButtonLink href="/play" size="xl" icon={<ArrowRight size={15} />}>
-          Hit the highway
-        </ButtonLink>
-      </Signature>
 
-      <Legal>
-        © {new Date().getFullYear()} Highway Rush. All rights reserved. Built by Umar Nazir. Highway
-        Rush is an independent project and is not affiliated with any vehicle manufacturer. Progress,
-        settings and records are stored locally under <code>highway-rush-save-v2</code>; clearing
-        browser data removes them permanently.
-      </Legal>
-    </PageShell>
+          <MetricsStrip>
+            <MetricTile>
+              <span>
+                <Route size={10} /> Destinations
+              </span>
+              <strong>{DESTINATIONS.length}</strong>
+            </MetricTile>
+
+            <MetricTile>
+              <span>
+                <Car size={10} /> Performance Machines
+              </span>
+              <strong>{CARS.length}</strong>
+            </MetricTile>
+
+            <MetricTile>
+              <span>
+                <Trophy size={10} /> Career Trophies
+              </span>
+              <strong>{TROPHIES.length}</strong>
+            </MetricTile>
+
+            <MetricTile>
+              <span>
+                <Gauge size={10} /> Target Framerate
+              </span>
+              <strong>60 FPS</strong>
+            </MetricTile>
+          </MetricsStrip>
+        </HeroPanel>
+
+        <Grid>
+          <TerminalPanel>
+            <PanelHead>
+              <Users size={16} />
+              <h3>Development &amp; Creative Direction</h3>
+            </PanelHead>
+            <PanelBody>
+              <RoleRow>
+                <span>Creator &amp; Software Architect</span>
+                <strong>Umar Nazir</strong>
+              </RoleRow>
+              <RoleRow>
+                <span>3D Graphics &amp; Shader Engineering</span>
+                <strong>Umar Nazir</strong>
+              </RoleRow>
+              <RoleRow>
+                <span>Procedural Audio Synthesis</span>
+                <strong>Umar Nazir</strong>
+              </RoleRow>
+              <RoleRow>
+                <span>Vehicle Dynamics &amp; Physics Tuning</span>
+                <strong>Umar Nazir</strong>
+              </RoleRow>
+              <RoleRow>
+                <span>Interface &amp; HUD Architecture</span>
+                <strong>Umar Nazir</strong>
+              </RoleRow>
+            </PanelBody>
+          </TerminalPanel>
+
+          <TerminalPanel>
+            <PanelHead>
+              <Cpu size={16} />
+              <h3>Engine &amp; Performance Core</h3>
+            </PanelHead>
+            <PanelBody>
+              <BadgeCluster>
+                <TechTag $highlight>Three.js WebGL</TechTag>
+                <TechTag $highlight>Instanced Meshes</TechTag>
+                <TechTag $highlight>Web Audio DSP</TechTag>
+                <TechTag>React 19</TechTag>
+                <TechTag>Next.js App Router</TechTag>
+                <TechTag>TypeScript</TechTag>
+                <TechTag>Zustand Stores</TechTag>
+                <TechTag>Styled Components</TechTag>
+              </BadgeCluster>
+
+              <TechDesc>
+                The 3D engine leverages hardware-accelerated instancing for road dashes, barriers, and environmental props.
+                Web Audio automation scheduling is strictly throttled to prevent DSP queue buffer underruns, ensuring fluid 60 FPS gameplay on desktop and mobile GPUs.
+              </TechDesc>
+            </PanelBody>
+          </TerminalPanel>
+        </Grid>
+
+        <FooterNote>
+          <span>© {new Date().getFullYear()} Highway Rush. All rights reserved. Original work by Umar Nazir.</span>
+          <strong>HIGHWAY RUSH v2.0 // ZERO-LAG 3D CORE</strong>
+        </FooterNote>
+      </ContentWrap>
+    </Stage>
   );
 }

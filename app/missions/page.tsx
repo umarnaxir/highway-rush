@@ -1,22 +1,20 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import styled from 'styled-components';
 import {
+  ArrowLeft,
   Check,
-  ChevronRight,
-  Clock3,
+  Clock,
   Coins,
   Flag,
   Gift,
-  Loader2,
+  ListChecks,
   Sparkles,
   Target,
+  Zap,
 } from 'lucide-react';
-import { PageShell } from '@/components/layout/PageShell';
-import { Badge, Panel, PanelLabel, ProgressBar, SectionKicker } from '@/components/ui/Panel';
-import { Button, ButtonLink } from '@/components/ui/Button';
-import { EmptyState } from '@/components/ui/Feedback';
 import {
   getLongTermProgress,
   useGameStore,
@@ -28,6 +26,124 @@ import { getAudioManager } from '@/lib/audio/AudioManager';
 import { formatNumber } from '@/lib/ui/format';
 import { media } from '@/lib/ui/theme';
 
+const Stage = styled.div`
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #030507;
+  color: var(--text);
+  padding: clamp(16px, 3vw, 32px);
+  user-select: none;
+`;
+
+const ContentWrap = styled.div`
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+`;
+
+const TopNav = styled.header`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+`;
+
+const BackPill = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  background: rgba(10, 14, 18, 0.82);
+  backdrop-filter: blur(10px);
+  color: var(--text);
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 13px;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: var(--lime);
+    color: var(--lime);
+    transform: translateX(-3px);
+  }
+`;
+
+const HeaderTitle = styled.div`
+  h1 {
+    font-family: ${({ theme }) => theme.fonts.display};
+    font-size: clamp(28px, 4vw, 42px);
+    font-style: italic;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+
+    em {
+      color: var(--lime);
+      font-style: inherit;
+    }
+  }
+
+  span {
+    color: var(--text-dim);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+`;
+
+const CurrencyPill = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(10, 14, 18, 0.82);
+  color: var(--warning);
+  font-family: ${({ theme }) => theme.fonts.mono};
+  font-size: 11px;
+  font-weight: 800;
+`;
+
+const TabRow = styled.div`
+  display: flex;
+  gap: 6px;
+  background: rgba(10, 14, 18, 0.6);
+  padding: 4px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  width: fit-content;
+`;
+
+const TabBtn = styled.button<{ $active: boolean }>`
+  padding: 8px 14px;
+  border-radius: 4px;
+  border: 1px solid ${({ $active }) => ($active ? 'var(--lime)' : 'transparent')};
+  background: ${({ $active }) => ($active ? 'rgba(215,255,63,.14)' : 'transparent')};
+  color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text-muted)')};
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 11px;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+`;
+
 const MissionGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -38,422 +154,271 @@ const MissionGrid = styled.div`
   }
 `;
 
-const Mission = styled(Panel)<{ $complete: boolean; $claimed: boolean }>`
-  padding: 20px;
+const MissionCard = styled.div<{ $completed: boolean; $claimed: boolean }>`
+  padding: 16px;
+  border-radius: 5px;
+  border: 1px solid
+    ${({ $claimed, $completed, theme }) =>
+      $claimed ? 'var(--line)' : $completed ? theme.colors.lime : 'var(--line-strong)'};
+  background: ${({ $claimed, $completed }) =>
+    $claimed
+      ? 'rgba(10, 14, 18, 0.5)'
+      : $completed
+        ? 'linear-gradient(150deg, rgba(215,255,63,.09), rgba(10, 14, 18, 0.9))'
+        : 'rgba(8, 12, 16, 0.85)'};
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  border-color: ${({ $complete, $claimed, theme }) =>
-    $claimed
-      ? theme.colors.line
-      : $complete
-        ? 'rgba(215,255,63,.45)'
-        : theme.colors.line};
-  background: ${({ $complete, $claimed }) =>
-    $claimed
-      ? 'rgba(255,255,255,.012)'
-      : $complete
-        ? 'linear-gradient(150deg, rgba(215,255,63,.07), rgba(255,255,255,.015))'
-        : undefined};
-  opacity: ${({ $claimed }) => ($claimed ? 0.62 : 1)};
+  gap: 10px;
+  opacity: ${({ $claimed }) => ($claimed ? 0.65 : 1)};
 `;
 
-const MissionTop = styled.div`
+const CardTop = styled.div`
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
+
+  .info {
+    span {
+      font-size: 7px;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--lime);
+    }
+    strong {
+      display: block;
+      margin-top: 3px;
+      font-family: ${({ theme }) => theme.fonts.display};
+      font-size: 15px;
+      font-style: italic;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    p {
+      margin-top: 4px;
+      font-size: 10px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+  }
+
+  .reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 8px;
+    border-radius: 3px;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    background: rgba(251, 191, 36, 0.08);
+    color: var(--warning);
+    font-family: ${({ theme }) => theme.fonts.mono};
+    font-size: 10px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
 `;
 
-const MissionCopy = styled.div`
-  min-width: 0;
-  span {
+const ProgressTrack = styled.div`
+  .bar-top {
     display: flex;
-    align-items: center;
-    gap: 7px;
-    color: var(--text-dim);
+    justify-content: space-between;
     font-size: 8px;
     font-weight: 800;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    margin-bottom: 7px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    font-family: ${({ theme }) => theme.fonts.mono};
   }
-  strong {
-    display: block;
-    font-family: ${({ theme }) => theme.fonts.display};
-    font-size: 22px;
-    line-height: 1;
-    text-transform: uppercase;
-    letter-spacing: 0.01em;
+
+  .track {
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
   }
-  p {
-    margin-top: 7px;
-    color: var(--text-muted);
-    font-size: 11px;
-    line-height: 1.6;
+
+  .fill {
+    height: 100%;
+    border-radius: inherit;
+    background: var(--lime);
+    box-shadow: 0 0 6px rgba(215, 255, 63, 0.4);
+    transition: width 0.3s ease;
   }
 `;
 
-const Reward = styled.div`
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--warning);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 800;
-  padding: 7px 10px;
-  border: 1px solid rgba(251, 191, 36, 0.25);
-  background: rgba(251, 191, 36, 0.05);
-  border-radius: 4px;
-`;
-
-const MissionFoot = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-top: auto;
-`;
-
-const Timer = styled.div`
+const ClaimBtn = styled.button`
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  color: var(--text-dim);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-`;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 4px;
+  border: none;
+  background: var(--lime);
+  color: #07090b;
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
 
-const SectionHead = styled.div`
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 18px;
-  margin: 40px 0 18px;
-  flex-wrap: wrap;
-
-  h2 {
-    font-family: ${({ theme }) => theme.fonts.display};
-    font-size: 26px;
-    text-transform: uppercase;
-    font-style: italic;
-    line-height: 1;
+  &:hover {
+    background: #e6ff66;
+    transform: translateY(-1px);
   }
 `;
-
-const Summary = styled(Panel)`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  padding: 0;
-  overflow: hidden;
-  background: var(--line);
-
-  ${media.mobile} {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const SummaryCell = styled.div`
-  background: var(--panel);
-  padding: 18px 20px;
-  span {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    color: var(--text-dim);
-    font-size: 8px;
-    font-weight: 800;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-  }
-  strong {
-    display: block;
-    margin-top: 8px;
-    font-family: var(--font-display);
-    font-size: 28px;
-    line-height: 1;
-  }
-  em {
-    display: block;
-    margin-top: 4px;
-    color: var(--text-muted);
-    font-style: normal;
-    font-size: 10px;
-  }
-`;
-
-function useMidnightCountdown() {
-  const [remaining, setRemaining] = useState('—');
-  useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      const midnight = new Date(now);
-      midnight.setHours(24, 0, 0, 0);
-      const diff = midnight.getTime() - now.getTime();
-      const hours = Math.floor(diff / 3600000);
-      const minutes = Math.floor((diff % 3600000) / 60000);
-      const seconds = Math.floor((diff % 60000) / 1000);
-      setRemaining(`${hours}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`);
-    };
-    update();
-    const timer = window.setInterval(update, 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-  return remaining;
-}
 
 export default function MissionsPage() {
-  const hydrated = useGameStore((state) => state.hydrated);
+  const [tab, setTab] = useState<'daily' | 'career'>('daily');
+
+  const coins = useGameStore((state) => state.coins);
   const daily = useGameStore((state) => state.daily);
-  const ensureDailyMissions = useGameStore((state) => state.ensureDailyMissions);
-  const claimDailyMission = useGameStore((state) => state.claimDailyMission);
-  const claimLongTermMission = useGameStore((state) => state.claimLongTermMission);
-  const claimedLongTerm = useGameStore((state) => state.claimedLongTermMissions);
   const stats = useGameStore((state) => state.stats);
   const ownedCars = useGameStore((state) => state.ownedCars);
   const unlockedTrophies = useGameStore((state) => state.unlockedTrophies);
+  const claimedLongTerm = useGameStore((state) => state.claimedLongTermMissions);
+  const claimDailyMission = useGameStore((state) => state.claimDailyMission);
+  const claimLongTermMission = useGameStore((state) => state.claimLongTermMission);
   const pushToast = useUiStore((state) => state.pushToast);
-  const countdown = useMidnightCountdown();
 
-  useEffect(() => {
-    ensureDailyMissions();
-  }, [ensureDailyMissions]);
+  const careerProgress = useMemo(() => {
+    const extras = {
+      carsOwned: ownedCars.length,
+      customizations: stats.customizationChanges,
+      trophyCount: Object.keys(unlockedTrophies).length,
+    };
+    return getLongTermProgress(stats, extras);
+  }, [stats, ownedCars, unlockedTrophies]);
 
-  const longTermProgress = useMemo(
-    () =>
-      getLongTermProgress(stats, {
-        carsOwned: ownedCars.length,
-        customizations: stats.customizationChanges,
-        trophyCount: Object.keys(unlockedTrophies).length,
-      }),
-    [stats, ownedCars.length, unlockedTrophies],
-  );
-
-  const completedDaily = daily.missions.filter((mission) => mission.progress >= mission.target).length;
-  const claimedDaily = daily.missions.filter((mission) => mission.claimed).length;
-  const claimableDaily = daily.missions.filter(
-    (mission) => mission.progress >= mission.target && !mission.claimed,
-  ).length;
-  const claimableLong = LONG_TERM_MISSIONS.filter(
-    (mission) =>
-      !claimedLongTerm.includes(mission.id) &&
-      (longTermProgress[mission.id] ?? 0) >= mission.target,
-  ).length;
-
-  const handleDaily = (id: string) => {
-    const result = claimDailyMission(id);
-    pushToast({
-      kind: result.ok ? 'reward' : 'error',
-      title: result.ok ? 'Mission reward claimed' : 'Unable to claim',
-      message: result.message,
-    });
-    if (result.ok) getAudioManager().playCue('coin');
+  const handleClaimDaily = (id: string, reward: number) => {
+    claimDailyMission(id);
+    getAudioManager().playCue('purchase');
+    pushToast({ kind: 'reward', title: 'Reward Claimed', message: `+${formatNumber(reward)} Coins banked.` });
   };
 
-  const handleLong = (mission: LongTermMission) => {
-    const result = claimLongTermMission(mission.id);
-    pushToast({
-      kind: result.ok ? 'reward' : 'error',
-      title: result.ok ? `${mission.name} complete` : 'Unable to claim',
-      message: result.message,
-    });
-    if (result.ok) getAudioManager().playCue('coin');
+  const handleClaimCareer = (id: string, reward: number) => {
+    claimLongTermMission(id);
+    getAudioManager().playCue('purchase');
+    pushToast({ kind: 'reward', title: 'Milestone Claimed', message: `+${formatNumber(reward)} Coins banked.` });
   };
 
   return (
-    <PageShell
-      kicker="Objectives"
-      title={
-        <>
-          Missions &amp; <em>paydays.</em>
-        </>
-      }
-      intro="Daily objectives rotate at midnight and stack into long-term career goals. Rewards are paid once and saved to this device."
-      actions={
-        <>
-          <Badge $tone={claimableDaily + claimableLong > 0 ? 'lime' : 'neutral'}>
-            <Gift size={10} /> {claimableDaily + claimableLong} claimable
-          </Badge>
-          <ButtonLink href="/play" size="sm" icon={<Flag size={13} />}>
-            Race
-          </ButtonLink>
-        </>
-      }
-    >
-      <Summary>
-        <SummaryCell>
-          <span>
-            <Target size={11} /> Daily progress
-          </span>
-          <strong>
-            {completedDaily}
-            <span style={{ fontSize: 15, color: 'var(--text-dim)' }}> / {daily.missions.length || 4}</span>
-          </strong>
-          <em>{claimedDaily} rewards banked</em>
-        </SummaryCell>
-        <SummaryCell>
-          <span>
-            <Sparkles size={11} /> Long-term
-          </span>
-          <strong>
-            {claimedLongTerm.length}
-            <span style={{ fontSize: 15, color: 'var(--text-dim)' }}> / {LONG_TERM_MISSIONS.length}</span>
-          </strong>
-          <em>{claimableLong} ready to claim</em>
-        </SummaryCell>
-        <SummaryCell>
-          <span>
-            <Clock3 size={11} /> Resets in
-          </span>
-          <strong style={{ fontSize: 24 }}>{countdown}</strong>
-          <em>Local midnight · deterministic daily set</em>
-        </SummaryCell>
-      </Summary>
+    <Stage>
+      <ContentWrap>
+        <TopNav>
+          <BackPill href="/">
+            <ArrowLeft size={16} /> Main Menu
+          </BackPill>
 
-      <SectionHead>
-        <div>
-          <SectionKicker>Today&apos;s board</SectionKicker>
-          <h2>Daily objectives</h2>
-        </div>
-        <Timer>
-          <Clock3 size={11} /> Refreshes at midnight
-        </Timer>
-      </SectionHead>
+          <HeaderTitle>
+            <span>OPERATIONAL CONTRACTS</span>
+            <h1>
+              Mission <em>Terminal</em>
+            </h1>
+          </HeaderTitle>
 
-      {!hydrated && daily.missions.length === 0 ? (
-        <EmptyState icon={<Loader2 size={22} style={{ animation: 'spin 1s linear infinite' }} />} title="Loading objectives" />
-      ) : daily.missions.length === 0 ? (
-        <EmptyState
-          icon={<Target size={22} />}
-          title="No missions generated"
-          description="The daily board could not be generated. Reload the page or reset progress from Settings."
-        />
-      ) : (
-        <MissionGrid>
-          {daily.missions.map((mission) => {
-            const complete = mission.progress >= mission.target;
-            const percent = mission.target > 0 ? (mission.progress / mission.target) * 100 : 0;
-            return (
-              <Mission key={mission.id} $complete={complete} $claimed={mission.claimed}>
-                <MissionTop>
-                  <MissionCopy>
-                    <span>
-                      <Target size={10} /> {mission.metric.replace(/([A-Z])/g, ' $1')}
-                    </span>
-                    <strong>{mission.title}</strong>
-                    <p>{mission.description}</p>
-                  </MissionCopy>
-                  <Reward>
-                    <Coins size={13} /> {formatNumber(mission.reward)}
-                  </Reward>
-                </MissionTop>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 7 }}>
-                    <PanelLabel>Progress</PanelLabel>
-                    <span style={{ color: complete ? 'var(--lime)' : 'var(--text-muted)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
-                      {formatNumber(mission.progress)} / {formatNumber(mission.target)}
-                    </span>
-                  </div>
-                  <ProgressBar value={percent} color={complete ? 'var(--lime)' : 'var(--info)'} height={5} />
-                </div>
-                <MissionFoot>
-                  <Badge $tone={mission.claimed ? 'neutral' : complete ? 'lime' : 'info'}>
-                    {mission.claimed ? (
-                      <>
-                        <Check size={9} /> Claimed
-                      </>
-                    ) : complete ? (
-                      'Ready'
-                    ) : (
-                      'In progress'
-                    )}
-                  </Badge>
-                  <Button
-                    size="sm"
-                    variant={complete && !mission.claimed ? 'primary' : 'dark'}
-                    disabled={!complete || mission.claimed}
-                    onClick={() => handleDaily(mission.id)}
-                    icon={mission.claimed ? <Check size={12} /> : <Gift size={12} />}
-                  >
-                    {mission.claimed ? 'Banked' : `Claim ${formatNumber(mission.reward)}`}
-                  </Button>
-                </MissionFoot>
-              </Mission>
-            );
-          })}
-        </MissionGrid>
-      )}
+          <CurrencyPill>
+            <Coins size={14} /> {formatNumber(coins)} COINS
+          </CurrencyPill>
+        </TopNav>
 
-      <SectionHead>
-        <div>
-          <SectionKicker>Career objectives</SectionKicker>
-          <h2>Long-term missions</h2>
-        </div>
-        <Timer>
-          <ChevronRight size={11} /> Permanent progression
-        </Timer>
-      </SectionHead>
+        <TabRow>
+          <TabBtn type="button" $active={tab === 'daily'} onClick={() => setTab('daily')}>
+            <Clock size={12} /> Daily Contracts ({daily.missions.filter((m) => m.progress >= m.target && !m.claimed).length} Ready)
+          </TabBtn>
+          <TabBtn type="button" $active={tab === 'career'} onClick={() => setTab('career')}>
+            <Target size={12} /> Career Milestones
+          </TabBtn>
+        </TabRow>
 
-      <MissionGrid>
-        {LONG_TERM_MISSIONS.map((mission) => {
-          const progress = longTermProgress[mission.id] ?? 0;
-          const complete = progress >= mission.target;
-          const claimed = claimedLongTerm.includes(mission.id);
-          const percent = mission.target > 0 ? (progress / mission.target) * 100 : 0;
-          return (
-            <Mission key={mission.id} $complete={complete} $claimed={claimed}>
-              <MissionTop>
-                <MissionCopy>
-                  <span>
-                    <Sparkles size={10} /> Career · {mission.metric.replace(/([A-Z])/g, ' $1')}
-                  </span>
-                  <strong>{mission.name}</strong>
-                  <p>{mission.description}</p>
-                </MissionCopy>
-                <Reward>
-                  <Coins size={13} /> {formatNumber(mission.reward)}
-                </Reward>
-              </MissionTop>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 7 }}>
-                  <PanelLabel>Progress</PanelLabel>
-                  <span style={{ color: complete ? 'var(--lime)' : 'var(--text-muted)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
-                    {formatNumber(progress)} / {formatNumber(mission.target)}
-                  </span>
-                </div>
-                <ProgressBar value={percent} color={complete ? 'var(--lime)' : 'var(--purple)'} height={5} />
-              </div>
-              <MissionFoot>
-                <Badge $tone={claimed ? 'neutral' : complete ? 'lime' : 'purple'}>
-                  {claimed ? (
-                    <>
-                      <Check size={9} /> Claimed
-                    </>
-                  ) : complete ? (
-                    'Ready'
-                  ) : (
-                    'In progress'
+        {tab === 'daily' && (
+          <MissionGrid>
+            {daily.missions.map((m) => {
+              const completed = m.progress >= m.target;
+              const pct = Math.min(100, Math.round((m.progress / m.target) * 100));
+              return (
+                <MissionCard key={m.id} $completed={completed} $claimed={m.claimed}>
+                  <CardTop>
+                    <div className="info">
+                      <span>DAILY CONTRACT</span>
+                      <strong>{m.title}</strong>
+                      <p>{m.description}</p>
+                    </div>
+                    <div className="reward">
+                      <Coins size={12} /> +{formatNumber(m.reward)}
+                    </div>
+                  </CardTop>
+
+                  <ProgressTrack>
+                    <div className="bar-top">
+                      <span>PROGRESS</span>
+                      <span>
+                        {formatNumber(m.progress)} / {formatNumber(m.target)} ({pct}%)
+                      </span>
+                    </div>
+                    <div className="track">
+                      <div className="fill" style={{ width: `${pct}%` }} />
+                    </div>
+                  </ProgressTrack>
+
+                  {completed && !m.claimed && (
+                    <ClaimBtn type="button" onClick={() => handleClaimDaily(m.id, m.reward)}>
+                      <Gift size={14} /> Claim Reward
+                    </ClaimBtn>
                   )}
-                </Badge>
-                <Button
-                  size="sm"
-                  variant={complete && !claimed ? 'primary' : 'dark'}
-                  disabled={!complete || claimed}
-                  onClick={() => handleLong(mission)}
-                  icon={claimed ? <Check size={12} /> : <Gift size={12} />}
-                >
-                  {claimed ? 'Banked' : `Claim ${formatNumber(mission.reward)}`}
-                </Button>
-              </MissionFoot>
-            </Mission>
-          );
-        })}
-      </MissionGrid>
-    </PageShell>
+                </MissionCard>
+              );
+            })}
+          </MissionGrid>
+        )}
+
+        {tab === 'career' && (
+          <MissionGrid>
+            {LONG_TERM_MISSIONS.map((m) => {
+              const current = careerProgress[m.id] ?? 0;
+              const completed = current >= m.target;
+              const claimed = claimedLongTerm.includes(m.id);
+              const pct = Math.min(100, Math.round((current / m.target) * 100));
+              return (
+                <MissionCard key={m.id} $completed={completed} $claimed={claimed}>
+                  <CardTop>
+                    <div className="info">
+                      <span>CAREER MILESTONE</span>
+                      <strong>{m.name}</strong>
+                      <p>{m.description}</p>
+                    </div>
+                    <div className="reward">
+                      <Coins size={12} /> +{formatNumber(m.reward)}
+                    </div>
+                  </CardTop>
+
+                  <ProgressTrack>
+                    <div className="bar-top">
+                      <span>PROGRESS</span>
+                      <span>
+                        {formatNumber(current)} / {formatNumber(m.target)} ({pct}%)
+                      </span>
+                    </div>
+                    <div className="track">
+                      <div className="fill" style={{ width: `${pct}%` }} />
+                    </div>
+                  </ProgressTrack>
+
+                  {completed && !claimed && (
+                    <ClaimBtn type="button" onClick={() => handleClaimCareer(m.id, m.reward)}>
+                      <Gift size={14} /> Claim Milestone
+                    </ClaimBtn>
+                  )}
+                </MissionCard>
+              );
+            })}
+          </MissionGrid>
+        )}
+      </ContentWrap>
+    </Stage>
   );
 }

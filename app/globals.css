@@ -78,9 +78,9 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* The mobile tab bar is fixed, so reserve its height above the home indicator. */
+/* The mobile tab bar is fixed only when present */
 @media (max-width: 1023px) {
-  body {
+  body:has(#main-menu-drawer) {
     padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
   }
 }

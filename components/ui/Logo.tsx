@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import styled, { css } from 'styled-components';
 import { media } from '@/lib/ui/theme';
 
@@ -85,12 +86,14 @@ const Kicker = styled.span<{ $size: keyof typeof sizes }>`
 
 export function BrandMark({ size = 28 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden="true">
-      <rect width="64" height="64" rx="9" fill="#0b0f13" stroke="rgba(255,255,255,.16)" />
-      <path d="M14 46 28 18h8L22 46h-8Z" fill="#d7ff3f" />
-      <path d="M28 46 42 18h8L36 46h-8Z" fill="#f5f7f9" opacity=".92" />
-      <path d="M8 51h48" stroke="#d7ff3f" strokeWidth="2.5" strokeLinecap="round" opacity=".7" />
-    </svg>
+    <Image
+      src="/icon.svg"
+      width={size}
+      height={size}
+      alt="Highway Rush Logo"
+      unoptimized
+      style={{ display: 'block', borderRadius: 6, objectFit: 'contain' }}
+    />
   );
 }
 
@@ -108,12 +111,14 @@ export function Logo({
   return (
     <Wrap href={href} $size={size} $plain={plain} aria-label="Highway Rush home">
       <Mark $size={size}>
-        <svg viewBox="0 0 64 64" aria-hidden="true">
-          <rect width="64" height="64" rx="10" fill="#0b0f13" stroke="rgba(255,255,255,.18)" />
-          <path d="M14 46 28 18h8L22 46h-8Z" fill="#d7ff3f" />
-          <path d="M28 46 42 18h8L36 46h-8Z" fill="#f5f7f9" opacity=".92" />
-          <path d="M8 51h48" stroke="#d7ff3f" strokeWidth="2.5" strokeLinecap="round" opacity=".7" />
-        </svg>
+        <Image
+          src="/icon.svg"
+          alt="Highway Rush Logo"
+          width={32}
+          height={32}
+          unoptimized
+          style={{ width: '100%', height: '100%', display: 'block', borderRadius: 6, objectFit: 'contain' }}
+        />
       </Mark>
       <Words $size={size}>
         <Word $size={size}>

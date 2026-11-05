@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import {
   Activity,
@@ -12,7 +13,7 @@ import {
   Trophy,
   Zap,
 } from 'lucide-react';
-import type { DestinationDefinition, HudFrame, SpeedUnit } from '@/lib/types';
+import type { DestinationDefinition, HudFrame, HudTraffic, SpeedUnit } from '@/lib/types';
 import { formatDistance, formatNumber, formatSpeedValue } from '@/lib/ui/format';
 import { media } from '@/lib/ui/theme';
 
@@ -671,6 +672,64 @@ const MinimalPause = styled(PauseButton)`
   right: 14px;
 `;
 
+function TrafficRadar({ traffic }: { traffic: HudTraffic[] }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Background road polygon
+    ctx.fillStyle = 'rgba(10, 15, 20, 0.55)';
+    ctx.beginPath();
+    ctx.moveTo(w * 0.2, 4);
+    ctx.lineTo(w * 0.8, 4);
+    ctx.lineTo(w * 0.94, h - 4);
+    ctx.lineTo(w * 0.06, h - 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(215, 255, 63, 0.22)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Center dashed divider
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    ctx.moveTo(w * 0.5, 6);
+    ctx.lineTo(w * 0.5, h - 8);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Traffic cars
+    for (let i = 0; i < traffic.length; i += 1) {
+      const car = traffic[i];
+      const x = w * 0.5 + (car.x / 9) * (w * 0.36);
+      const y = 8 + ((car.z + 100) / 124) * (h - 22);
+      ctx.fillStyle = car.color || '#38bdf8';
+      ctx.fillRect(x - 3, y - 4, 6, 8);
+    }
+
+    // Player indicator
+    ctx.fillStyle = '#d7ff3f';
+    ctx.beginPath();
+    ctx.moveTo(w * 0.5, h - 14);
+    ctx.lineTo(w * 0.5 - 4, h - 4);
+    ctx.lineTo(w * 0.5 + 4, h - 4);
+    ctx.closePath();
+    ctx.fill();
+  }, [traffic]);
+
+  return <canvas ref={canvasRef} width={80} height={126} style={{ display: 'block', width: '100%', height: 'auto', borderRadius: 4 }} />;
+}
+
 export function RaceHud({
   hud,
   destination,
@@ -750,46 +809,7 @@ export function RaceHud({
           <label>
             Radar <i />
           </label>
-          <svg viewBox="0 0 100 150" style={{ display: 'block', width: '100%', height: 'auto' }}>
-            <defs>
-              <linearGradient id="radar-road" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgba(255,255,255,.03)" />
-                <stop offset="100%" stopColor="rgba(255,255,255,.11)" />
-              </linearGradient>
-            </defs>
-            <rect x="4" y="2" width="92" height="146" rx="3" fill="rgba(0,0,0,.16)" />
-            <path d="M26 2h48l9 146H17L26 2Z" fill="url(#radar-road)" stroke="rgba(255,255,255,.18)" strokeWidth="1" />
-            {[-50.5, -16.5, 16.5, 50.5].map((offset) => (
-              <line
-                key={offset}
-                x1={50 + offset * 0.72}
-                y1="7"
-                x2={50 + offset * 0.82}
-                y2="143"
-                stroke="rgba(255,255,255,.1)"
-                strokeWidth="0.7"
-                strokeDasharray="3 5"
-              />
-            ))}
-            {hud.traffic.map((car, index) => {
-              const x = 50 + (car.x / 9) * 38;
-              const y = 10 + ((car.z + 100) / 124) * 133;
-              return (
-                <rect
-                  key={`${index}-${car.z.toFixed(0)}`}
-                  x={x - 3}
-                  y={y - 4}
-                  width="6"
-                  height="8"
-                  rx="1"
-                  fill={car.color}
-                  opacity="0.9"
-                />
-              );
-            })}
-            <polygon points="50,133 45,143 55,143" fill="var(--lime)" />
-            <circle cx="50" cy="138" r="10" fill="none" stroke="rgba(215,255,63,.2)" strokeWidth="1" />
-          </svg>
+          <TrafficRadar traffic={hud.traffic} />
         </Radar>
       )}
 
