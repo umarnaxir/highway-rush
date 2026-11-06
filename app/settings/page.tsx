@@ -240,6 +240,32 @@ const SliderWrap = styled.div`
   }
 `;
 
+const AttributionFooter = styled.footer`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+
+  a {
+    color: var(--lime);
+    text-decoration: none;
+    font-weight: 800;
+    transition: all 0.15s ease;
+
+    &:hover {
+      text-decoration: underline;
+      color: #e6ff66;
+      text-shadow: 0 0 12px rgba(215, 255, 63, 0.4);
+    }
+  }
+`;
+
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>('graphics');
 
@@ -579,6 +605,17 @@ export default function SettingsPage() {
             </>
           )}
         </SettingsCard>
+
+        <AttributionFooter>
+          <span>Design and built by</span>{' '}
+          <a
+            href="https://umarnazir.vercel.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Umar Nazir
+          </a>
+        </AttributionFooter>
       </ContentWrap>
     </Stage>
   );

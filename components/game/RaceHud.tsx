@@ -289,11 +289,15 @@ const Fps = styled.span`
 
 const Combo = styled.div`
   position: absolute;
-  top: clamp(82px, 12vh, 122px);
+  top: clamp(48px, 7vh, 68px);
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
-  animation: comboPop 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: comboPop 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  ${media.mobile} {
+    top: clamp(40px, 6vh, 56px);
+  }
 
   span {
     display: block;
@@ -305,20 +309,20 @@ const Combo = styled.div`
   }
   strong {
     display: block;
-    margin-top: 2px;
+    margin-top: 1px;
     color: var(--lime);
     font-family: ${({ theme }) => theme.fonts.display};
-    font-size: clamp(26px, 3.4vw, 44px);
+    font-size: clamp(24px, 3.2vw, 38px);
     font-style: italic;
     font-weight: 900;
     line-height: 0.92;
     letter-spacing: -0.02em;
-    text-shadow: 0 0 28px rgba(215, 255, 63, 0.45);
+    text-shadow: 0 0 24px rgba(215, 255, 63, 0.45);
     font-variant-numeric: tabular-nums;
   }
   em {
     display: block;
-    margin-top: 3px;
+    margin-top: 2px;
     color: var(--text-muted);
     font-size: 8px;
     font-style: normal;

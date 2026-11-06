@@ -104,49 +104,65 @@ const Vignette = styled.div`
     linear-gradient(180deg, rgba(2, 4, 6, 0.28), transparent 18%, transparent 82%, rgba(2, 4, 6, 0.44));
 `;
 
-const feedIn = keyframes`
-  from { opacity: 0; transform: translate(-50%, 10px) scale(.96); }
-  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+const feedPop = keyframes`
+  0% { opacity: 0; transform: translateY(-8px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 `;
 
 const FeedLayer = styled.div`
   position: absolute;
   left: 50%;
-  top: 33%;
-  z-index: 16;
+  top: max(88px, env(safe-area-inset-top) + 74px);
+  z-index: 25;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 7px;
+  gap: 4px;
   transform: translateX(-50%);
   pointer-events: none;
-  width: min(380px, 80vw);
+  width: auto;
+  max-width: 90vw;
 
   ${media.mobile} {
-    top: 26%;
+    top: max(78px, env(safe-area-inset-top) + 64px);
   }
 `;
 
 const FeedItem = styled.div<{ $tone: FeedItem['tone'] }>`
-  min-width: 140px;
-  padding: 8px 15px;
-  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 5px 16px;
+  border-radius: 999px;
   border: 1px solid
     ${({ $tone }) =>
       $tone === 'danger'
-        ? 'rgba(255,93,93,.45)'
+        ? 'rgba(255,93,93,.6)'
         : $tone === 'warning'
-          ? 'rgba(251,191,36,.42)'
+          ? 'rgba(251,191,36,.55)'
           : $tone === 'info'
-            ? 'rgba(56,189,248,.42)'
-            : 'rgba(215,255,63,.42)'};
-  background: rgba(3, 6, 8, 0.78);
-  backdrop-filter: blur(9px);
+            ? 'rgba(56,189,248,.55)'
+            : 'rgba(215,255,63,.65)'};
+  background: rgba(4, 7, 10, 0.88);
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 4px 18px rgba(0, 0, 0, 0.65),
+    0 0 14px
+      ${({ $tone }) =>
+        $tone === 'danger'
+          ? 'rgba(255,93,93,.28)'
+          : $tone === 'warning'
+            ? 'rgba(251,191,36,.25)'
+            : $tone === 'info'
+              ? 'rgba(56,189,248,.25)'
+              : 'rgba(215,255,63,.32)'};
   text-align: center;
-  animation: ${feedIn} 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  white-space: nowrap;
+  animation: ${feedPop} 0.16s cubic-bezier(0.22, 1, 0.36, 1) both;
 
   strong {
-    display: block;
+    display: inline-block;
     color: ${({ $tone, theme }) =>
       $tone === 'danger'
         ? theme.colors.danger
@@ -156,22 +172,24 @@ const FeedItem = styled.div<{ $tone: FeedItem['tone'] }>`
             ? theme.colors.info
             : theme.colors.lime};
     font-family: ${({ theme }) => theme.fonts.display};
-    font-size: 14px;
+    font-size: 11px;
     font-style: italic;
     font-weight: 800;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     line-height: 1;
   }
 
   span {
-    display: block;
-    margin-top: 3px;
-    color: var(--text-muted);
-    font-size: 8px;
+    display: inline-block;
+    color: var(--text);
+    font-family: ${({ theme }) => theme.fonts.mono};
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+    line-height: 1;
+    opacity: 0.92;
   }
 `;
 
@@ -976,11 +994,17 @@ export function RaceStage({
   const pushFeed = useCallback((title: string, detail: string, tone: FeedItem['tone']) => {
     feedId.current += 1;
     const id = feedId.current;
-    setFeed((previous) => [...previous.slice(-3), { id, title, detail, tone }]);
+    // Clear any previous timers to prevent stacking into a vertical tower
+    for (const timer of feedTimers.current) {
+      window.clearTimeout(timer);
+    }
+    feedTimers.current = [];
+    // Keep only the single latest event card at the top
+    setFeed([{ id, title, detail, tone }]);
     const timer = window.setTimeout(() => {
       setFeed((previous) => previous.filter((item) => item.id !== id));
       feedTimers.current = feedTimers.current.filter((entry) => entry !== timer);
-    }, 1900);
+    }, 700);
     feedTimers.current.push(timer);
   }, []);
 
@@ -1002,7 +1026,7 @@ export function RaceStage({
       goTimer.current = window.setTimeout(() => {
         setShowGo(false);
         goTimer.current = null;
-      }, 700);
+      }, 450);
     }
     if (next === 'countdown') setShowGo(false);
   }, []);
