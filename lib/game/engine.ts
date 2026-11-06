@@ -392,7 +392,9 @@ export class HighwayRushEngine {
   }
 
   private currentFov(): number {
-    const baseFov = this.cameraMode === 'cockpit' ? this.settings.gameplay.fov + 4 : this.settings.gameplay.fov;
+    const isPortrait = typeof window !== 'undefined' && window.innerWidth < window.innerHeight;
+    const portraitBoost = isPortrait ? (this.cameraMode === 'cockpit' ? 6 : 10) : 0;
+    const baseFov = (this.cameraMode === 'cockpit' ? this.settings.gameplay.fov + 4 : this.settings.gameplay.fov) + portraitBoost;
     const speedT = Math.min(1, this.speed / 80);
     const target = baseFov + speedT * 6 + (this.boosting ? 11 : 0);
     const motionScale = this.settings.accessibility.reducedMotion ? 0.35 : 1;
@@ -865,9 +867,10 @@ export class HighwayRushEngine {
       return;
     }
 
+    const isPortrait = typeof window !== 'undefined' && window.innerWidth < window.innerHeight;
     const speedT = Math.min(1, this.speed / 85);
-    const cameraDistance = 9.2 * this.settings.gameplay.cameraDistance + speedT * 1.3;
-    const height = 4.55 + speedT * 0.55 + (this.boosting ? 0.1 : 0);
+    const cameraDistance = (9.2 + (isPortrait ? 2.0 : 0)) * this.settings.gameplay.cameraDistance + speedT * 1.3;
+    const height = (4.55 + (isPortrait ? 1.2 : 0)) + speedT * 0.55 + (this.boosting ? 0.1 : 0);
     const targetX = this.playerX * 0.62 + this.steerVisual * -0.65;
     const targetY = height;
     const targetZ = cameraDistance;

@@ -124,7 +124,7 @@ const FeedLayer = styled.div`
   max-width: 90vw;
 
   ${media.mobile} {
-    top: max(78px, env(safe-area-inset-top) + 64px);
+    top: max(48px, env(safe-area-inset-top) + 40px);
   }
 `;
 

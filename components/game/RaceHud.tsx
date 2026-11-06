@@ -41,7 +41,8 @@ const Root = styled.div`
   user-select: none;
 `;
 
-const Top = styled.div`
+/* DESKTOP TOP HUD */
+const DesktopTop = styled.div`
   position: absolute;
   top: 0;
   left: 0;
@@ -62,9 +63,7 @@ const Top = styled.div`
     grid-template-columns: minmax(0, 1fr) auto;
   }
   ${media.mobile} {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
-    padding-top: 12px;
+    display: none;
   }
 `;
 
@@ -92,7 +91,6 @@ const ModeRow = styled.div`
     border-radius: 50%;
     background: currentColor;
     box-shadow: 0 0 9px currentColor;
-    animation: pulseGlow 2s ease-in-out infinite;
   }
 `;
 
@@ -178,7 +176,7 @@ const Fill = styled.div<{ $value: number; $endless?: boolean }>`
   transition: width 0.25s linear;
 `;
 
-const TopRight = styled.div`
+const DesktopTopRight = styled.div`
   display: flex;
   align-items: flex-start;
   justify-content: flex-end;
@@ -186,7 +184,7 @@ const TopRight = styled.div`
   justify-self: end;
 `;
 
-const Score = styled.div`
+const DesktopScore = styled.div`
   text-align: right;
   span {
     display: block;
@@ -217,18 +215,9 @@ const Score = styled.div`
     letter-spacing: 0.08em;
     font-variant-numeric: tabular-nums;
   }
-
-  ${media.mobile} {
-    strong {
-      font-size: 22px;
-    }
-    em {
-      display: none;
-    }
-  }
 `;
 
-const Wallet = styled.div`
+const DesktopWallet = styled.div`
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -247,13 +236,9 @@ const Wallet = styled.div`
     width: 12px;
     height: 12px;
   }
-
-  ${media.mobile} {
-    padding: 0 7px;
-  }
 `;
 
-const PauseButton = styled.button`
+const DesktopPauseButton = styled.button`
   pointer-events: auto;
   width: 38px;
   height: 38px;
@@ -265,6 +250,7 @@ const PauseButton = styled.button`
   background: rgba(8, 11, 14, 0.7);
   color: var(--text);
   backdrop-filter: blur(10px);
+  cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover {
@@ -272,14 +258,9 @@ const PauseButton = styled.button`
     color: var(--lime);
     background: rgba(215, 255, 63, 0.08);
   }
-
-  ${media.mobile} {
-    width: 34px;
-    height: 34px;
-  }
 `;
 
-const CamButton = styled.button`
+const DesktopCamButton = styled.button`
   pointer-events: auto;
   height: 38px;
   display: flex;
@@ -310,12 +291,130 @@ const CamButton = styled.button`
     color: var(--lime);
     background: rgba(215, 255, 63, 0.08);
   }
+`;
+
+/* DEDICATED MOBILE TOP HUD (MINIMAL & ZERO DUPLICATES) */
+const MobileTopBar = styled.div`
+  display: none;
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  z-index: 22;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
 
   ${media.mobile} {
-    padding: 0 9px;
-    span {
-      display: none;
-    }
+    display: flex;
+  }
+`;
+
+const MobileRoutePill = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(6, 9, 12, 0.72);
+  backdrop-filter: blur(14px);
+  color: #ffffff;
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 11px;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--lime);
+    box-shadow: 0 0 6px var(--lime);
+    flex: 0 0 auto;
+  }
+`;
+
+const MobileScoreBadge = styled.div`
+  font-family: ${({ theme }) => theme.fonts.display};
+  font-size: 20px;
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+
+  small {
+    font-size: 8px;
+    font-style: normal;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: var(--lime);
+  }
+`;
+
+const MobileActionsGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+`;
+
+const MobileCoinsPill = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: rgba(6, 9, 12, 0.72);
+  backdrop-filter: blur(14px);
+  color: var(--warning);
+  font-family: ${({ theme }) => theme.fonts.mono};
+  font-size: 9px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+
+  svg {
+    width: 11px;
+    height: 11px;
+  }
+`;
+
+const MobileIconButton = styled.button`
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(6, 9, 12, 0.72);
+  color: #ffffff;
+  backdrop-filter: blur(14px);
+  cursor: pointer;
+  transition: all 0.12s ease;
+
+  &:hover {
+    border-color: var(--lime);
+    color: var(--lime);
+  }
+
+  svg {
+    width: 13px;
+    height: 13px;
   }
 `;
 
@@ -338,7 +437,7 @@ const Combo = styled.div`
   animation: comboPop 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
 
   ${media.mobile} {
-    top: clamp(40px, 6vh, 56px);
+    top: max(44px, env(safe-area-inset-top) + 38px);
   }
 
   span {
@@ -354,7 +453,7 @@ const Combo = styled.div`
     margin-top: 1px;
     color: var(--lime);
     font-family: ${({ theme }) => theme.fonts.display};
-    font-size: clamp(24px, 3.2vw, 38px);
+    font-size: clamp(22px, 3.2vw, 38px);
     font-style: italic;
     font-weight: 900;
     line-height: 0.92;
@@ -385,6 +484,7 @@ const Combo = styled.div`
   }
 `;
 
+/* RADAR (DESKTOP ONLY TO AVOID BLOCKING ONCOMING MOBILE TRAFFIC) */
 const Radar = styled.div`
   position: absolute;
   top: 50%;
@@ -422,14 +522,12 @@ const Radar = styled.div`
     transform: none;
   }
   ${media.mobile} {
-    top: 102px;
-    right: 12px;
-    width: 68px;
-    padding: 6px;
+    display: none;
   }
 `;
 
-const SpeedCluster = styled.div<{ $touch: boolean }>`
+/* DESKTOP SPEED CLUSTER */
+const DesktopSpeedCluster = styled.div<{ $touch: boolean }>`
   position: absolute;
   left: clamp(15px, 2vw, 30px);
   bottom: ${({ $touch }) => ($touch ? '172px' : 'clamp(18px, 3.5vh, 32px)')};
@@ -438,8 +536,7 @@ const SpeedCluster = styled.div<{ $touch: boolean }>`
   gap: clamp(10px, 1.5vw, 18px);
 
   ${media.mobile} {
-    bottom: ${({ $touch }) => ($touch ? '156px' : '18px')};
-    gap: 9px;
+    display: none;
   }
 `;
 
@@ -480,10 +577,6 @@ const SpeedNumber = styled.strong`
   letter-spacing: -0.045em;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
-
-  ${media.mobile} {
-    font-size: clamp(46px, 14vw, 72px);
-  }
 `;
 
 const Unit = styled.span`
@@ -528,13 +621,6 @@ const Rpm = styled.div`
     &.red.on {
       background: var(--danger);
       box-shadow: 0 0 7px rgba(255, 93, 93, 0.55);
-    }
-  }
-
-  ${media.mobile} {
-    gap: 2px;
-    i {
-      width: 2.5px;
     }
   }
 `;
@@ -603,7 +689,8 @@ const Chip = styled.span<{ $tone?: 'lime' | 'danger' | 'warning' | 'info' }>`
   text-transform: uppercase;
 `;
 
-const Gauges = styled.div<{ $touch: boolean }>`
+/* DESKTOP GAUGES */
+const DesktopGauges = styled.div<{ $touch: boolean }>`
   position: absolute;
   right: clamp(15px, 2vw, 30px);
   bottom: ${({ $touch }) => ($touch ? '172px' : 'clamp(18px, 3.5vh, 32px)')};
@@ -613,9 +700,7 @@ const Gauges = styled.div<{ $touch: boolean }>`
   gap: 8px;
 
   ${media.mobile} {
-    bottom: ${({ $touch }) => ($touch ? '156px' : '18px')};
-    width: 126px;
-    gap: 6px;
+    display: none;
   }
 `;
 
@@ -626,10 +711,6 @@ const GaugeRow = styled.div`
   border-radius: 4px;
   background: rgba(4, 7, 9, 0.52);
   backdrop-filter: blur(7px);
-
-  ${media.mobile} {
-    padding: 5px 6px;
-  }
 `;
 
 const GaugeTop = styled.div`
@@ -661,16 +742,6 @@ const GaugeTop = styled.div`
     width: 10px;
     height: 10px;
     color: var(--color, var(--lime));
-  }
-
-  ${media.mobile} {
-    span {
-      font-size: 6px;
-      letter-spacing: 0.1em;
-    }
-    b {
-      font-size: 8px;
-    }
   }
 `;
 
@@ -710,12 +781,130 @@ const Hint = styled.div`
   ${media.desktop} {
     display: none;
   }
+  ${media.mobile} {
+    display: none;
+  }
 `;
 
-const MinimalPause = styled(PauseButton)`
+/* DEDICATED COMPACT MOBILE SPEED DISPLAY */
+const MobileSpeedCluster = styled.div`
+  display: none;
   position: absolute;
-  top: 14px;
-  right: 14px;
+  left: max(14px, env(safe-area-inset-left));
+  bottom: calc(max(14px, env(safe-area-inset-bottom)) + 92px);
+  z-index: 15;
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(6, 9, 12, 0.65);
+  backdrop-filter: blur(14px);
+  pointer-events: none;
+
+  ${media.mobile} {
+    display: flex;
+  }
+
+  .speed-row {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .speed-num {
+    font-family: ${({ theme }) => theme.fonts.display};
+    font-size: 24px;
+    font-style: italic;
+    font-weight: 900;
+    line-height: 0.88;
+    letter-spacing: -0.03em;
+    color: #ffffff;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .speed-unit {
+    font-family: ${({ theme }) => theme.fonts.mono};
+    font-size: 7px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+  }
+
+  .gear-tag {
+    font-family: ${({ theme }) => theme.fonts.mono};
+    font-size: 7.5px;
+    font-weight: 800;
+    color: var(--lime);
+    background: rgba(215, 255, 63, 0.14);
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-left: 2px;
+  }
+
+  .mini-speed-bar {
+    width: 100%;
+    height: 2px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+
+    .mini-speed-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--lime);
+      box-shadow: 0 0 6px var(--lime);
+      transition: width 0.15s ease;
+    }
+  }
+`;
+
+/* DEDICATED COMPACT MOBILE VEHICLE STATUS (HEALTH, FUEL, NITRO) */
+const MobileStatusMeters = styled.div`
+  display: none;
+  position: absolute;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: calc(max(14px, env(safe-area-inset-bottom)) + 92px);
+  z-index: 15;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(6, 9, 12, 0.65);
+  backdrop-filter: blur(14px);
+  width: 78px;
+  pointer-events: none;
+
+  ${media.mobile} {
+    display: flex;
+  }
+
+  .meter-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+
+    svg {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+    }
+
+    .track {
+      flex: 1;
+      height: 2.5px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      overflow: hidden;
+
+      .fill {
+        height: 100%;
+        border-radius: 999px;
+        transition: width 0.2s linear, background 0.2s ease;
+      }
+    }
+  }
 `;
 
 function TrafficRadar({ traffic }: { traffic: HudTraffic[] }) {
@@ -798,7 +987,80 @@ export function RaceHud({
 
   return (
     <Root>
-      <Top>
+      {/* 1. DEDICATED MOBILE TOP HUD */}
+      <MobileTopBar>
+        <MobileRoutePill>
+          <i />
+          <span>{destination.name}</span>
+        </MobileRoutePill>
+
+        <MobileScoreBadge>
+          {formatNumber(hud.score)} <small>PTS</small>
+        </MobileScoreBadge>
+
+        <MobileActionsGroup>
+          <MobileCoinsPill aria-label={`${hud.coins} coins`}>
+            <Coins /> {formatNumber(hud.coins)}
+          </MobileCoinsPill>
+          {onToggleCamera && (
+            <MobileIconButton
+              type="button"
+              onClick={onToggleCamera}
+              aria-label="Switch camera view"
+              title="Switch camera view"
+            >
+              <Camera />
+            </MobileIconButton>
+          )}
+          <MobileIconButton
+            type="button"
+            onClick={onPause}
+            aria-label="Pause race"
+          >
+            <Pause fill="currentColor" />
+          </MobileIconButton>
+        </MobileActionsGroup>
+      </MobileTopBar>
+
+      {/* 2. DEDICATED MOBILE SPEED CLUSTER (CORNER PINNED) */}
+      <MobileSpeedCluster>
+        <div className="speed-row">
+          <span className="speed-num">{speed}</span>
+          <span className="speed-unit">{speedUnit === 'mph' ? 'MPH' : 'KM/H'}</span>
+          <span className="gear-tag">G{hud.gear}</span>
+        </div>
+        <div className="mini-speed-bar">
+          <div
+            className="mini-speed-fill"
+            style={{ width: `${Math.min(100, (hud.speedKph / 280) * 100)}%` }}
+          />
+        </div>
+      </MobileSpeedCluster>
+
+      {/* 3. DEDICATED MOBILE STATUS INDICATORS (CORNER PINNED) */}
+      <MobileStatusMeters>
+        <div className="meter-row" style={{ color: healthColor }}>
+          <Heart />
+          <div className="track">
+            <div className="fill" style={{ width: `${hud.health}%`, background: healthColor }} />
+          </div>
+        </div>
+        <div className="meter-row" style={{ color: fuelColor }}>
+          <Fuel />
+          <div className="track">
+            <div className="fill" style={{ width: `${hud.fuel}%`, background: fuelColor }} />
+          </div>
+        </div>
+        <div className="meter-row" style={{ color: 'var(--lime)' }}>
+          <Zap />
+          <div className="track">
+            <div className="fill" style={{ width: `${hud.nitro}%`, background: 'var(--lime)' }} />
+          </div>
+        </div>
+      </MobileStatusMeters>
+
+      {/* 4. DESKTOP TOP HUD (PRESERVED FOR DESKTOP MONITORS) */}
+      <DesktopTop>
         <Route>
           <ModeRow>
             <i /> {runMode === 'endless' ? 'Endless' : 'Route race'} · {destination.region}
@@ -823,20 +1085,20 @@ export function RaceHud({
           </Track>
         </DistanceBlock>
 
-        <TopRight>
-          <Score>
+        <DesktopTopRight>
+          <DesktopScore>
             <span>Score</span>
             <strong>{formatNumber(hud.score)}</strong>
             <em>
               <Trophy size={8} style={{ verticalAlign: -1, marginRight: 3 }} />
               Best {formatNumber(Math.max(bestScore, hud.bestScore))}
             </em>
-          </Score>
-          <Wallet aria-label={`${hud.coins} run coins`}>
+          </DesktopScore>
+          <DesktopWallet aria-label={`${hud.coins} run coins`}>
             <Coins /> {formatNumber(hud.coins)}
-          </Wallet>
+          </DesktopWallet>
           {onToggleCamera && (
-            <CamButton
+            <DesktopCamButton
               type="button"
               onClick={onToggleCamera}
               aria-label="Switch Camera (Key C)"
@@ -844,13 +1106,13 @@ export function RaceHud({
             >
               <Camera size={13} />
               <span>{hud.cameraView === 'cockpit' ? 'Cockpit' : 'Chase'}</span>
-            </CamButton>
+            </DesktopCamButton>
           )}
-          <PauseButton type="button" onClick={onPause} aria-label="Pause race">
+          <DesktopPauseButton type="button" onClick={onPause} aria-label="Pause race">
             <Pause size={15} fill="currentColor" />
-          </PauseButton>
-        </TopRight>
-      </Top>
+          </DesktopPauseButton>
+        </DesktopTopRight>
+      </DesktopTop>
 
       {showFps && <Fps>{hud.fps} FPS</Fps>}
 
@@ -871,7 +1133,8 @@ export function RaceHud({
         </Radar>
       )}
 
-      <SpeedCluster $touch={touch}>
+      {/* 5. DESKTOP SPEED CLUSTER */}
+      <DesktopSpeedCluster $touch={touch}>
         <Speed>
           <SpeedLabel>
             <Gauge /> Speed
@@ -910,9 +1173,10 @@ export function RaceHud({
           <span>GEAR</span>
           <strong>{hud.gear}</strong>
         </Gear>
-      </SpeedCluster>
+      </DesktopSpeedCluster>
 
-      <Gauges $touch={touch}>
+      {/* 6. DESKTOP GAUGES */}
+      <DesktopGauges $touch={touch}>
         <GaugeRow>
           <GaugeTop style={{ ['--color' as string]: healthColor }}>
             <span>
@@ -946,7 +1210,7 @@ export function RaceHud({
             <GaugeFill $value={hud.nitro} $color="var(--lime)" />
           </GaugeTrack>
         </GaugeRow>
-      </Gauges>
+      </DesktopGauges>
 
       {!touch && (
         <Hint>
@@ -966,9 +1230,14 @@ export function RaceHud({
 export function RaceHudFallback({ onPause }: { onPause: () => void }) {
   return (
     <Root>
-      <MinimalPause type="button" onClick={onPause} aria-label="Pause race">
+      <DesktopPauseButton
+        style={{ position: 'absolute', top: 14, right: 14 }}
+        type="button"
+        onClick={onPause}
+        aria-label="Pause race"
+      >
         <Pause size={15} fill="currentColor" />
-      </MinimalPause>
+      </DesktopPauseButton>
     </Root>
   );
 }

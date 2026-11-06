@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import styled, { css } from 'styled-components';
-import { Camera, ChevronLeft, ChevronRight, ChevronsDown, ChevronsUp, Smartphone, Volume2, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsDown, ChevronsUp, Smartphone, Volume2, Zap } from 'lucide-react';
 import { media } from '@/lib/ui/theme';
 
 type VirtualAction =
@@ -29,9 +29,9 @@ const Root = styled.div<{ $active: boolean }>`
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
-  padding: 0 max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
-    max(16px, env(safe-area-inset-left));
+  gap: 12px;
+  padding: 0 max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom))
+    max(14px, env(safe-area-inset-left));
   pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
@@ -43,24 +43,32 @@ const Root = styled.div<{ $active: boolean }>`
   visibility: ${({ $active }) => ($active ? 'visible' : 'hidden')};
 `;
 
-const Cluster = styled.div`
+const LeftCluster = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none;
+`;
+
+const SteeringRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+`;
+
+const RightCluster = styled.div`
   display: flex;
   align-items: flex-end;
-  gap: 10px;
+  gap: 8px;
   pointer-events: none;
 `;
 
 const Stack = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  pointer-events: none;
-`;
-
-const UtilityCluster = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   pointer-events: none;
 `;
 
@@ -69,28 +77,27 @@ const SteeringHint = styled.div`
   align-items: center;
   gap: 7px;
   align-self: flex-end;
-  margin-bottom: 8px;
-  padding: 8px 11px;
+  margin-bottom: 6px;
+  padding: 6px 12px;
   border: 1px solid rgba(215, 255, 63, 0.24);
   border-radius: 999px;
-  background: rgba(7, 10, 13, 0.58);
+  background: rgba(7, 10, 13, 0.65);
   color: var(--lime);
-  font-size: 7px;
+  font-size: 7.5px;
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   pointer-events: none;
   backdrop-filter: blur(10px);
 
   svg {
-    width: 13px;
-    height: 13px;
+    width: 12px;
+    height: 12px;
   }
 `;
 
 const Key = styled.button<{
-  $size: 'sm' | 'md' | 'lg';
-  $tone: 'steer' | 'nitro' | 'brake' | 'throttle' | 'horn' | 'cam';
+  $variant: 'steer' | 'throttle' | 'nitro' | 'brake' | 'horn';
   $pressed: boolean;
 }>`
   position: relative;
@@ -99,165 +106,169 @@ const Key = styled.button<{
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: linear-gradient(160deg, rgba(22, 29, 37, 0.78), rgba(6, 9, 12, 0.72));
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: linear-gradient(165deg, rgba(16, 22, 28, 0.72), rgba(6, 9, 12, 0.78));
   color: var(--text);
   font-family: ${({ theme }) => theme.fonts.body};
   font-size: 7px;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 12px 28px rgba(0, 0, 0, 0.32);
+    0 8px 24px rgba(0, 0, 0, 0.35);
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
   transition:
-    transform 0.1s ease,
-    background 0.12s ease,
-    border-color 0.12s ease,
-    box-shadow 0.12s ease;
+    transform 0.08s ease,
+    background 0.1s ease,
+    border-color 0.1s ease,
+    box-shadow 0.1s ease;
 
   svg {
-    width: ${({ $size }) => ($size === 'lg' ? 34 : $size === 'md' ? 25 : 21)}px;
-    height: ${({ $size }) => ($size === 'lg' ? 34 : $size === 'md' ? 25 : 21)}px;
     stroke-width: 2.4;
     pointer-events: none;
   }
 
   span {
     pointer-events: none;
-    opacity: 0.62;
+    opacity: 0.65;
+    font-size: 6.5px;
+    margin-top: 1px;
   }
 
-  ${({ $size }) =>
-    $size === 'lg' &&
+  /* Steering keys: compact & ergonomic */
+  ${({ $variant }) =>
+    $variant === 'steer' &&
     css`
-      width: 92px;
-      height: 96px;
-      border-radius: 20px;
-    `}
-  ${({ $size }) =>
-    $size === 'md' &&
-    css`
-      width: 68px;
-      height: 68px;
-    `}
-  ${({ $size }) =>
-    $size === 'sm' &&
-    css`
-      width: 58px;
+      width: 54px;
       height: 52px;
-      border-radius: 12px;
+      svg {
+        width: 24px;
+        height: 24px;
+      }
     `}
 
-  ${({ $tone }) =>
-    $tone === 'throttle' &&
+  /* Primary Throttle key */
+  ${({ $variant }) =>
+    $variant === 'throttle' &&
     css`
-      border-color: rgba(215, 255, 63, 0.38);
-      background: linear-gradient(160deg, rgba(215, 255, 63, 0.2), rgba(20, 28, 10, 0.7));
+      width: 56px;
+      height: 68px;
+      border-radius: 14px;
+      border-color: rgba(215, 255, 63, 0.36);
+      background: linear-gradient(165deg, rgba(215, 255, 63, 0.18), rgba(12, 18, 10, 0.78));
       color: var(--lime);
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.15),
-        0 0 30px rgba(215, 255, 63, 0.13);
-    `}
-  ${({ $tone }) =>
-    $tone === 'nitro' &&
-    css`
-      border-color: rgba(56, 189, 248, 0.35);
-      color: var(--info);
-    `}
-  ${({ $tone }) =>
-    $tone === 'brake' &&
-    css`
-      border-color: rgba(255, 93, 93, 0.32);
-      color: var(--danger);
-    `}
-  ${({ $tone }) =>
-    $tone === 'horn' &&
-    css`
-      border-color: rgba(245, 158, 11, 0.45);
-      color: #fbbf24;
-    `}
-  ${({ $tone }) =>
-    $tone === 'cam' &&
-    css`
-      border-color: rgba(147, 197, 253, 0.45);
-      color: #93c5fd;
+        inset 0 1px 0 rgba(255, 255, 255, 0.16),
+        0 0 20px rgba(215, 255, 63, 0.14);
+
+      svg {
+        width: 26px;
+        height: 26px;
+      }
     `}
 
-  ${({ $pressed, $tone }) =>
+  /* Nitro key: compact slot */
+  ${({ $variant }) =>
+    $variant === 'nitro' &&
+    css`
+      width: 48px;
+      height: 31px;
+      border-radius: 8px;
+      border-color: rgba(56, 189, 248, 0.3);
+      color: var(--info);
+      svg {
+        width: 14px;
+        height: 14px;
+      }
+    `}
+
+  /* Brake key: compact slot */
+  ${({ $variant }) =>
+    $variant === 'brake' &&
+    css`
+      width: 48px;
+      height: 31px;
+      border-radius: 8px;
+      border-color: rgba(255, 93, 93, 0.3);
+      color: var(--danger);
+      svg {
+        width: 15px;
+        height: 15px;
+      }
+    `}
+
+  /* Horn key: small secondary round badge */
+  ${({ $variant }) =>
+    $variant === 'horn' &&
+    css`
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border-color: rgba(245, 158, 11, 0.32);
+      color: #fbbf24;
+      svg {
+        width: 13px;
+        height: 13px;
+      }
+    `}
+
+  /* Active / Pressed states */
+  ${({ $pressed, $variant }) =>
     $pressed &&
     css`
-      transform: scale(0.94);
-      background: ${$tone === 'throttle'
-        ? 'rgba(215, 255, 63, 0.34)'
-        : $tone === 'nitro'
-          ? 'rgba(56, 189, 248, 0.24)'
-          : $tone === 'brake'
-            ? 'rgba(255, 93, 93, 0.22)'
-            : $tone === 'horn'
-              ? 'rgba(245, 158, 11, 0.28)'
-              : $tone === 'cam'
-                ? 'rgba(147, 197, 253, 0.28)'
-                : 'rgba(255, 255, 255, 0.16)'};
-      border-color: ${$tone === 'throttle'
+      transform: scale(0.93);
+      background: ${$variant === 'throttle'
+        ? 'rgba(215, 255, 63, 0.38)'
+        : $variant === 'nitro'
+          ? 'rgba(56, 189, 248, 0.28)'
+          : $variant === 'brake'
+            ? 'rgba(255, 93, 93, 0.26)'
+            : $variant === 'horn'
+              ? 'rgba(245, 158, 11, 0.32)'
+              : 'rgba(215, 255, 63, 0.22)'};
+      border-color: ${$variant === 'throttle'
         ? 'var(--lime)'
-        : $tone === 'nitro'
+        : $variant === 'nitro'
           ? 'var(--info)'
-          : $tone === 'brake'
+          : $variant === 'brake'
             ? 'var(--danger)'
-            : $tone === 'horn'
+            : $variant === 'horn'
               ? '#fbbf24'
-              : $tone === 'cam'
-                ? '#93c5fd'
-                : 'rgba(255, 255, 255, 0.5)'};
+              : 'var(--lime)'};
+      box-shadow: 0 0 14px
+        ${$variant === 'throttle'
+          ? 'rgba(215, 255, 63, 0.45)'
+          : $variant === 'nitro'
+            ? 'rgba(56, 189, 248, 0.4)'
+            : $variant === 'brake'
+              ? 'rgba(255, 93, 93, 0.4)'
+              : 'rgba(215, 255, 63, 0.3)'};
     `}
 
-  ${media.mobile} {
-    ${({ $size }) =>
-      $size === 'lg' &&
-      css`
-        width: 84px;
-        height: 88px;
-      `}
-    ${({ $size }) =>
-      $size === 'md' &&
-      css`
-        width: 62px;
-        height: 62px;
-      `}
-    ${({ $size }) =>
-      $size === 'sm' &&
-      css`
-        width: 54px;
-        height: 48px;
-      `}
-  }
-
   @media (orientation: landscape) and (max-height: 560px) {
-    ${({ $size }) =>
-      $size === 'lg' &&
+    ${({ $variant }) =>
+      $variant === 'steer' &&
       css`
-        width: 74px;
-        height: 74px;
+        width: 48px;
+        height: 46px;
       `}
-    ${({ $size }) =>
-      $size === 'md' &&
-      css`
-        width: 56px;
-        height: 56px;
-      `}
-    ${({ $size }) =>
-      $size === 'sm' &&
+    ${({ $variant }) =>
+      $variant === 'throttle' &&
       css`
         width: 50px;
-        height: 42px;
+        height: 58px;
+      `}
+    ${({ $variant }) =>
+      ($variant === 'nitro' || $variant === 'brake') &&
+      css`
+        width: 44px;
+        height: 27px;
       `}
   }
 `;
@@ -266,15 +277,15 @@ function HoldKey({
   action,
   label,
   icon,
-  size = 'md',
-  tone = 'steer',
+  variant,
+  showLabel = false,
   onControl,
 }: {
   action: VirtualAction;
   label: string;
   icon: ReactNode;
-  size?: 'sm' | 'md' | 'lg';
-  tone?: 'steer' | 'nitro' | 'brake' | 'throttle' | 'horn' | 'cam';
+  variant: 'steer' | 'throttle' | 'nitro' | 'brake' | 'horn';
+  showLabel?: boolean;
   onControl: (action: VirtualAction, active: boolean) => void;
 }) {
   const [pressed, setPressed] = useState(false);
@@ -304,7 +315,7 @@ function HoldKey({
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
-      // Pointer capture is best-effort on older mobile browsers.
+      // Pointer capture is best-effort on mobile browsers.
     }
     setPressed(true);
     controlRef.current(action, true);
@@ -313,8 +324,7 @@ function HoldKey({
   return (
     <Key
       type="button"
-      $size={size}
-      $tone={tone}
+      $variant={variant}
       $pressed={pressed}
       aria-label={label}
       aria-pressed={pressed}
@@ -326,15 +336,17 @@ function HoldKey({
       onDragStart={(event) => event.preventDefault()}
     >
       {icon}
-      <span>{label}</span>
+      {showLabel && <span>{label}</span>}
     </Key>
   );
 }
 
 /**
- * Translucent hold controls for touch devices. Every key maps directly onto
- * the engine's virtual input channel and releases on pointer cancellation, so
- * inputs cannot remain stuck when a thumb slides off the glass.
+ * Clean, minimal, thumb-friendly mobile controls.
+ * Left cluster: Left/Right steering + small Horn.
+ * Right cluster: Throttle (primary) + Nitro & Brake.
+ * Zero duplicate camera button (camera is placed in Top HUD).
+ * Middle area is 100% empty for maximum 3D road and vehicle visibility.
  */
 export function TouchControls({
   onControl,
@@ -344,76 +356,65 @@ export function TouchControls({
 }: TouchControlsProps) {
   return (
     <Root $active={active} aria-hidden={!active}>
-      <Cluster>
-        <UtilityCluster>
-          <HoldKey
-            action="switchCamera"
-            label="Cam"
-            icon={<Camera />}
-            size="sm"
-            tone="cam"
-            onControl={onControl}
-          />
-          <HoldKey
-            action="horn"
-            label="Horn"
-            icon={<Volume2 />}
-            size="sm"
-            tone="horn"
-            onControl={onControl}
-          />
-        </UtilityCluster>
+      {/* LEFT CLUSTER: STEERING & HORN */}
+      <LeftCluster>
+        <HoldKey
+          action="horn"
+          label="Horn"
+          icon={<Volume2 />}
+          variant="horn"
+          onControl={onControl}
+        />
         {showSteering ? (
-          <>
+          <SteeringRow>
             <HoldKey
               action="steerLeft"
-              label="Left"
+              label="Steer Left"
               icon={<ChevronLeft />}
-              size="lg"
+              variant="steer"
               onControl={onControl}
             />
             <HoldKey
               action="steerRight"
-              label="Right"
+              label="Steer Right"
               icon={<ChevronRight />}
-              size="lg"
+              variant="steer"
               onControl={onControl}
             />
-          </>
+          </SteeringRow>
         ) : (
           <SteeringHint>
             <Smartphone /> {steeringLabel ?? 'Tilt to steer'}
           </SteeringHint>
         )}
-      </Cluster>
-      <Cluster>
+      </LeftCluster>
+
+      {/* RIGHT CLUSTER: NITRO, BRAKE, THROTTLE */}
+      <RightCluster>
         <Stack>
           <HoldKey
             action="nitro"
             label="Nitro"
             icon={<Zap />}
-            size="sm"
-            tone="nitro"
+            variant="nitro"
             onControl={onControl}
           />
           <HoldKey
             action="brake"
             label="Brake"
             icon={<ChevronsDown />}
-            size="sm"
-            tone="brake"
+            variant="brake"
             onControl={onControl}
           />
         </Stack>
         <HoldKey
           action="accelerate"
-          label="Throttle"
+          label="Gas"
           icon={<ChevronsUp />}
-          size="lg"
-          tone="throttle"
+          variant="throttle"
           onControl={onControl}
         />
-      </Cluster>
+      </RightCluster>
     </Root>
   );
 }
