@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import {
   Activity,
+  Camera,
   Coins,
   Flag,
   Fuel,
@@ -27,6 +28,7 @@ interface RaceHudProps {
   showFps: boolean;
   touch: boolean;
   onPause: () => void;
+  onToggleCamera?: () => void;
 }
 
 const Root = styled.div`
@@ -274,6 +276,46 @@ const PauseButton = styled.button`
   ${media.mobile} {
     width: 34px;
     height: 34px;
+  }
+`;
+
+const CamButton = styled.button`
+  pointer-events: auto;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(8, 11, 14, 0.7);
+  color: var(--text);
+  font-family: ${({ theme }) => theme.fonts.body};
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  svg {
+    width: 13px;
+    height: 13px;
+    color: var(--lime);
+  }
+
+  &:hover {
+    border-color: var(--lime);
+    color: var(--lime);
+    background: rgba(215, 255, 63, 0.08);
+  }
+
+  ${media.mobile} {
+    padding: 0 9px;
+    span {
+      display: none;
+    }
   }
 `;
 
@@ -744,6 +786,7 @@ export function RaceHud({
   showFps,
   touch,
   onPause,
+  onToggleCamera,
 }: RaceHudProps) {
   const speed = formatSpeedValue(hud.speedKph, speedUnit);
   const target = runMode === 'endless' ? 0 : hud.targetM;
@@ -792,6 +835,17 @@ export function RaceHud({
           <Wallet aria-label={`${hud.coins} run coins`}>
             <Coins /> {formatNumber(hud.coins)}
           </Wallet>
+          {onToggleCamera && (
+            <CamButton
+              type="button"
+              onClick={onToggleCamera}
+              aria-label="Switch Camera (Key C)"
+              title="Switch Camera (Key C)"
+            >
+              <Camera size={13} />
+              <span>{hud.cameraView === 'cockpit' ? 'Cockpit' : 'Chase'}</span>
+            </CamButton>
+          )}
           <PauseButton type="button" onClick={onPause} aria-label="Pause race">
             <Pause size={15} fill="currentColor" />
           </PauseButton>
@@ -896,11 +950,13 @@ export function RaceHud({
 
       {!touch && (
         <Hint>
-          <span>Pause · Esc</span>
+          <span>Cam · C</span>
+          <span style={{ opacity: 0.5 }}>/</span>
+          <span>Horn · H</span>
           <span style={{ opacity: 0.5 }}>/</span>
           <span>Nitro · Space</span>
           <span style={{ opacity: 0.5 }}>/</span>
-          <span>{formatDistance(hud.distanceM)} driven</span>
+          <span>Pause · Esc</span>
         </Hint>
       )}
     </Root>

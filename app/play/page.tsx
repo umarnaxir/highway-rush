@@ -1,22 +1,22 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import styled, { keyframes } from 'styled-components';
 import {
   ArrowLeft,
   Car,
+  Check,
   ChevronLeft,
   ChevronRight,
   Coins,
+  Compass,
   Flag,
-  Flame,
-  Gauge,
   Lock,
   Play,
+  Sliders,
   Sparkles,
-  Trophy,
   Zap,
 } from 'lucide-react';
 import { PreviewCanvas } from '@/components/game/PreviewCanvas';
@@ -34,6 +34,28 @@ import { requestTiltAccess } from '@/lib/game/tilt';
 import { formatDistance, formatNumber } from '@/lib/ui/format';
 import type { Difficulty } from '@/lib/types';
 import { media } from '@/lib/ui/theme';
+import {
+  GameSidebarRoot,
+  MobileDragHandle,
+  SidebarScroll,
+  SidebarFooter,
+  SidebarKicker,
+  SidebarTitle,
+  SidebarSubtitle,
+  SidebarBadgeRow,
+  SidebarBadge,
+  SidebarSection,
+  SidebarMetricGrid,
+  SidebarMetricCard,
+  SidebarPillGroup,
+  SidebarPill,
+  SidebarPrimaryBtn,
+  SidebarVehicleCard,
+  SidebarHeaderRow,
+  QuickCycleGroup,
+  RosterList,
+  RosterItem,
+} from '@/components/ui/GameSidebar';
 
 const RaceStage = dynamic(() => import('@/components/game/RaceStage').then((mod) => mod.RaceStage), {
   ssr: false,
@@ -141,10 +163,8 @@ const Overlay = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-    max(14px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  padding: max(14px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
 `;
 
 const TopNav = styled.header`
@@ -154,6 +174,11 @@ const TopNav = styled.header`
   gap: 16px;
   pointer-events: auto;
   width: 100%;
+  max-width: calc(100% - clamp(340px, 24vw, 390px) - 24px);
+
+  ${media.mobile} {
+    max-width: 100%;
+  }
 `;
 
 const BackPill = styled(Link)`
@@ -222,32 +247,6 @@ const HeaderStats = styled.div`
     letter-spacing: 0.1em;
     text-transform: uppercase;
 
-    &.vehicle {
-      color: var(--text);
-      text-decoration: none;
-      transition: all 0.15s ease;
-
-      svg {
-        color: var(--lime);
-        width: 13px;
-        height: 13px;
-      }
-
-      .class-tag {
-        font-size: 8px;
-        color: var(--lime);
-        background: rgba(215, 255, 63, 0.12);
-        padding: 2px 5px;
-        border-radius: 2px;
-        margin-left: 2px;
-      }
-
-      &:hover {
-        border-color: var(--lime);
-        transform: translateY(-1px);
-      }
-    }
-
     &.currency {
       color: var(--warning);
       border-color: rgba(251, 191, 36, 0.35);
@@ -261,336 +260,11 @@ const HeaderStats = styled.div`
   }
 `;
 
-/* CENTERED HERO SECTION */
-const CenterHero = styled.div`
-  pointer-events: auto;
-  margin: auto auto 12px auto;
-  max-width: 880px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 12px;
-  padding: 0 12px;
-`;
-
-const KickerBadge = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(215, 255, 63, 0.35);
-  background: rgba(215, 255, 63, 0.08);
-  color: var(--lime);
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-  backdrop-filter: blur(8px);
-`;
-
-const HeroTitle = styled.h1`
-  font-family: ${({ theme }) => theme.fonts.display};
-  font-size: clamp(34px, 5.2vw, 68px);
-  font-style: italic;
-  font-weight: 900;
-  line-height: 0.88;
-  letter-spacing: -0.04em;
-  text-transform: uppercase;
-  text-shadow: 0 6px 36px rgba(0, 0, 0, 0.9);
-  margin: 0;
-
-  em {
-    color: var(--lime);
-    font-style: inherit;
-    margin-left: 6px;
-  }
-`;
-
-const HeroTagline = styled.p`
-  max-width: 580px;
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-style: italic;
-  line-height: 1.4;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
-
-  ${media.mobile} {
-    display: none;
-  }
-`;
-
-const BadgesStrip = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 2px;
-`;
-
-const MetricBadge = styled.div<{ $tone?: string }>`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 4px;
-  border: 1px solid ${({ $tone }) => ($tone ? $tone : 'var(--line-strong)')};
-  background: rgba(10, 14, 18, 0.82);
-  backdrop-filter: blur(10px);
-  color: ${({ $tone }) => ($tone ? $tone : 'var(--text)')};
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-
-  b {
-    color: var(--text);
-    font-family: ${({ theme }) => theme.fonts.mono};
-  }
-`;
-
-const MainLaunchBtn = styled.button`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  min-width: 320px;
-  padding: 16px 32px;
-  border-radius: 4px;
-  border: none;
-  background: var(--lime);
-  color: #07090b;
-  font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 18px;
-  font-style: italic;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  animation: ${pulseGlow} 2.6s infinite ease-in-out;
-  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-
-  &:hover:not(:disabled) {
-    transform: scale(1.03);
-    background: #e6ff66;
-  }
-
-  &:active {
-    transform: scale(0.98);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background: var(--line-strong);
-    color: var(--text-dim);
-    animation: none;
-  }
-
-  ${media.mobile} {
-    width: 100%;
-    min-width: 0;
-    padding: 14px 20px;
-  }
-`;
-
-/* CENTERED BRIEFING TERMINAL & MODIFIERS */
-const ModifiersBar = styled.div`
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  width: 100%;
-  max-width: 720px;
-  margin: 0 auto 10px auto;
-`;
-
-const ModeGroup = styled.div`
-  display: flex;
-  align-items: center;
-  background: rgba(10, 14, 18, 0.85);
-  border: 1px solid var(--line-strong);
-  border-radius: 5px;
-  padding: 3px;
-  backdrop-filter: blur(12px);
-`;
-
-const ModePill = styled.button<{ $active: boolean }>`
-  padding: 6px 14px;
-  border-radius: 3px;
-  border: 1px solid ${({ $active }) => ($active ? 'var(--lime)' : 'transparent')};
-  background: ${({ $active }) => ($active ? 'rgba(215, 255, 63, 0.16)' : 'transparent')};
-  color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text-muted)')};
-  font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 11px;
-  font-style: italic;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 0.15s ease;
-
-  &:hover {
-    color: var(--text);
-  }
-`;
-
-const DiffGroup = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(10, 14, 18, 0.85);
-  border: 1px solid var(--line-strong);
-  border-radius: 5px;
-  padding: 3px;
-  backdrop-filter: blur(12px);
-`;
-
-const DiffPill = styled.button<{ $active: boolean; $tone: string }>`
-  padding: 6px 10px;
-  border-radius: 3px;
-  border: 1px solid ${({ $active, $tone }) => ($active ? $tone : 'transparent')};
-  background: ${({ $active, $tone }) => ($active ? `${$tone}24` : 'transparent')};
-  color: ${({ $active, $tone }) => ($active ? $tone : 'var(--text-dim)')};
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 0.15s ease;
-
-  &:hover {
-    color: var(--text);
-  }
-`;
-
-/* CENTERED TRACK CAROUSEL */
-const CarouselWrap = styled.div`
-  pointer-events: auto;
-  width: 100%;
-  max-width: 1060px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-`;
-
-const ArrowNavBtn = styled.button`
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  flex: 0 0 auto;
-  border-radius: 4px;
-  border: 1px solid var(--line-strong);
-  background: rgba(10, 14, 18, 0.85);
-  backdrop-filter: blur(12px);
-  color: var(--text);
-  cursor: pointer;
-  transition: all 0.15s ease;
-
-  &:hover {
-    border-color: var(--lime);
-    color: var(--lime);
-    background: rgba(215, 255, 63, 0.12);
-    transform: scale(1.05);
-  }
-
-  ${media.mobile} {
-    display: none;
-  }
-`;
-
-const TrackRail = styled.div`
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding: 6px 4px;
-  scroll-behavior: smooth;
-  scrollbar-width: thin;
-  width: 100%;
-
-  &::-webkit-scrollbar {
-    height: 4px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: rgba(215, 255, 63, 0.25);
-    border-radius: 2px;
-  }
-`;
-
-const TrackCard = styled.button<{ $active: boolean; $locked: boolean }>`
-  min-width: 136px;
-  flex: 0 0 auto;
-  padding: 10px 14px;
-  border-radius: 5px;
-  border: 1px solid
-    ${({ $active, theme }) => ($active ? theme.colors.lime : 'var(--line-strong)')};
-  background: ${({ $active }) =>
-    $active ? 'rgba(215, 255, 63, 0.16)' : 'rgba(10, 14, 18, 0.86)'};
-  backdrop-filter: blur(14px);
-  box-shadow: ${({ $active }) =>
-    $active ? '0 0 20px rgba(215, 255, 63, 0.35)' : '0 8px 24px rgba(0, 0, 0, 0.5)'};
-  text-align: left;
-  cursor: pointer;
-  transform: ${({ $active }) => ($active ? 'translateY(-3px)' : 'none')};
-  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
-  opacity: ${({ $locked }) => ($locked ? 0.65 : 1)};
-
-  .card-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 8px;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text-dim)')};
-    margin-bottom: 4px;
-  }
-
-  strong {
-    display: block;
-    font-family: ${({ theme }) => theme.fonts.display};
-    font-size: 12px;
-    font-style: italic;
-    font-weight: 900;
-    text-transform: uppercase;
-    color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text)')};
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .card-bottom {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 4px;
-    font-size: 8px;
-    font-weight: 700;
-    color: var(--text-dim);
-    text-transform: uppercase;
-  }
-
-  &:hover {
-    border-color: var(--lime);
-    transform: translateY(-4px);
-    background: rgba(215, 255, 63, 0.1);
-  }
-`;
-
 export default function PlayPage() {
   const [racing, setRacing] = useState(false);
   const [runMode, setRunMode] = useState<RunMode>('race');
   const [starting, setStarting] = useState(false);
-  const railRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<'setup' | 'routes'>('setup');
 
   const coins = useGameStore((state) => state.coins);
   const selectedCar = useGameStore((state) => state.selectedCar);
@@ -618,6 +292,11 @@ export default function PlayPage() {
         .filter((run) => run.destinationId === destination.id)
         .reduce((best, run) => Math.max(best, run.score), 0),
     [runs, destination.id],
+  );
+
+  const currentIndex = useMemo(
+    () => DESTINATIONS.findIndex((d) => d.id === destination.id),
+    [destination.id],
   );
 
   useMenuAudio('menu', destination.environment, !racing);
@@ -693,14 +372,6 @@ export default function PlayPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleNext, handlePrev, handleStart, racing]);
 
-  // Auto-scroll active card into center view
-  useEffect(() => {
-    const activeEl = railRef.current?.querySelector<HTMLElement>(`[data-dest-id="${destination.id}"]`);
-    if (activeEl) {
-      activeEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    }
-  }, [destination.id]);
-
   if (racing) {
     return (
       <RaceStage
@@ -717,7 +388,7 @@ export default function PlayPage() {
 
   return (
     <Stage>
-      {/* 3D Real-time Highway Environment Preview */}
+      {/* 3D Real-time Highway Environment Preview with 100% unobstructed view */}
       <BackgroundCanvas>
         <PreviewCanvas
           car={car}
@@ -743,167 +414,204 @@ export default function PlayPage() {
           </ScreenTitle>
 
           <HeaderStats>
-            <Link
-              href="/garage"
-              className="stat-pill vehicle"
-              title="Change or Tune Vehicle in Garage"
-            >
-              <Car size={13} />
-              <span>{car.name}</span>
-              <span className="class-tag">{car.className}</span>
-            </Link>
-
             <div className="stat-pill currency">
               <Coins /> {formatNumber(coins)}
             </div>
           </HeaderStats>
         </TopNav>
+      </Overlay>
 
-        {/* CENTERED HERO SECTION */}
-        <CenterHero>
-          <KickerBadge>
-            <Sparkles size={11} /> {destination.region} · {destination.theme.timeOfDay.toUpperCase()} LIGHTING ·{' '}
-            {runMode === 'endless' ? 'ENDLESS SURVIVAL' : `${formatDistance(destination.distanceTarget)} SPRINT`}
-          </KickerBadge>
+      {/* FIXED ALL-IN-ONE RIGHT-SIDE GLASSMORPHISM SIDEBAR */}
+      <GameSidebarRoot aria-label="Race Briefing & Setup">
+        <MobileDragHandle />
+        <SidebarScroll>
+          <div>
+            <SidebarKicker>
+              <Sparkles size={11} /> {destination.region} {'//'} ROUTE BRIEFING
+            </SidebarKicker>
+            <SidebarHeaderRow>
+              <SidebarTitle>{destination.name}</SidebarTitle>
+              <QuickCycleGroup>
+                <button type="button" onClick={handlePrev} title="Previous Route (Left Arrow)">
+                  <ChevronLeft size={15} />
+                </button>
+                <span>{currentIndex + 1}/{DESTINATIONS.length}</span>
+                <button type="button" onClick={handleNext} title="Next Route (Right Arrow)">
+                  <ChevronRight size={15} />
+                </button>
+              </QuickCycleGroup>
+            </SidebarHeaderRow>
+            <SidebarSubtitle>{destination.tagline}</SidebarSubtitle>
+          </div>
 
-          <HeroTitle>
-            {destination.name} <em>{destination.difficulty}</em>
-          </HeroTitle>
+          <SidebarBadgeRow>
+            <SidebarBadge $tone={difficultyTone[settings.gameplay.difficulty]}>
+              {destination.difficulty.toUpperCase()}
+            </SidebarBadge>
+            <SidebarBadge>
+              {runMode === 'endless' ? 'ENDLESS' : formatDistance(destination.distanceTarget)}
+            </SidebarBadge>
+            <SidebarBadge>
+              {destination.environment.toUpperCase()} · {destination.theme.timeOfDay.toUpperCase()}
+            </SidebarBadge>
+            <SidebarBadge>
+              WEATHER: {destination.theme.weather.toUpperCase()}
+            </SidebarBadge>
+          </SidebarBadgeRow>
 
-          <HeroTagline>{destination.tagline}</HeroTagline>
+          <SidebarMetricGrid>
+            <SidebarMetricCard $highlight={routeBest > 0}>
+              <span className="label">Best Record</span>
+              <span className="value">
+                {routeBest > 0 ? `${formatNumber(routeBest)} PTS` : 'NO RECORD'}
+              </span>
+            </SidebarMetricCard>
 
-          {/* TELEMETRY BADGES */}
-          <BadgesStrip>
-            <MetricBadge $tone="var(--lime)">
-              TARGET: <b>{runMode === 'endless' ? 'ENDLESS' : formatDistance(destination.distanceTarget)}</b>
-            </MetricBadge>
+            <SidebarMetricCard>
+              <span className="label">Machine Cap</span>
+              <span className="value">{carStats.speed} KM/H</span>
+            </SidebarMetricCard>
+          </SidebarMetricGrid>
 
-            <MetricBadge>
-              ENVIRONMENT: <b>{destination.environment.toUpperCase()}</b>
-            </MetricBadge>
-
-            <MetricBadge $tone={difficultyTone[settings.gameplay.difficulty]}>
-              DIFFICULTY: <b>{settings.gameplay.difficulty.toUpperCase()}</b>
-            </MetricBadge>
-
-            <MetricBadge $tone={routeBest > 0 ? 'var(--warning)' : undefined}>
-              RECORD: <b>{routeBest > 0 ? `${formatNumber(routeBest)} PTS` : 'NO RECORD'}</b>
-            </MetricBadge>
-
-            <MetricBadge>
-              SPEED CAP: <b>{carStats.speed} SPD</b>
-            </MetricBadge>
-          </BadgesStrip>
-
-          {/* MASSIVE GLOWING LAUNCH BUTTON */}
-          <MainLaunchBtn
-            type="button"
-            onClick={handleStart}
-            disabled={starting}
-            aria-label="Launch Race"
-          >
-            <Play size={20} fill="currentColor" /> Launch Race · {runMode === 'endless' ? 'Endless' : 'Sprint'}
-          </MainLaunchBtn>
-        </CenterHero>
-
-        {/* CENTERED STAGING CONTROLS & TRACK CAROUSEL */}
-        <div>
-          {/* MODIFIERS: RACE MODE & DIFFICULTY */}
-          <ModifiersBar>
-            <ModeGroup>
-              <ModePill
+          {/* STUDIO NAVIGATION TABS IN SIDEBAR */}
+          <SidebarSection>
+            <span className="section-label">Race Setup &amp; Navigation</span>
+            <SidebarPillGroup>
+              <SidebarPill
                 type="button"
-                $active={runMode === 'race'}
+                $active={activeTab === 'setup'}
                 onClick={() => {
-                  setRunMode('race');
+                  setActiveTab('setup');
                   getAudioManager().playCue('ui');
                 }}
               >
-                🏁 Route Race
-              </ModePill>
-              <ModePill
+                <Sliders size={11} style={{ marginRight: 4 }} /> Modifiers
+              </SidebarPill>
+              <SidebarPill
                 type="button"
-                $active={runMode === 'endless'}
+                $active={activeTab === 'routes'}
                 onClick={() => {
-                  setRunMode('endless');
+                  setActiveTab('routes');
                   getAudioManager().playCue('ui');
                 }}
               >
-                ♾️ Endless Highway
-              </ModePill>
-            </ModeGroup>
+                <Compass size={11} style={{ marginRight: 4 }} /> All Routes ({unlockedDestinations.length}/{DESTINATIONS.length})
+              </SidebarPill>
+            </SidebarPillGroup>
+          </SidebarSection>
 
-            <DiffGroup>
-              {difficulties.map((diff) => (
-                <DiffPill
-                  key={diff.value}
-                  type="button"
-                  $active={settings.gameplay.difficulty === diff.value}
-                  $tone={difficultyTone[diff.value]}
-                  onClick={() => {
-                    updateSetting('gameplay', 'difficulty', diff.value);
-                    getAudioManager().playCue('ui');
-                  }}
-                >
-                  {diff.label}
-                </DiffPill>
-              ))}
-            </DiffGroup>
-          </ModifiersBar>
+          {/* TAB 1: MODIFIERS (RACE MODE, DIFFICULTY, ACTIVE MACHINE) */}
+          {activeTab === 'setup' && (
+            <>
+              <SidebarSection>
+                <span className="section-label">Race Mode</span>
+                <SidebarPillGroup>
+                  <SidebarPill
+                    type="button"
+                    $active={runMode === 'race'}
+                    onClick={() => {
+                      setRunMode('race');
+                      getAudioManager().playCue('ui');
+                    }}
+                  >
+                    🏁 Route Race
+                  </SidebarPill>
+                  <SidebarPill
+                    type="button"
+                    $active={runMode === 'endless'}
+                    onClick={() => {
+                      setRunMode('endless');
+                      getAudioManager().playCue('ui');
+                    }}
+                  >
+                    ♾️ Endless Highway
+                  </SidebarPill>
+                </SidebarPillGroup>
+              </SidebarSection>
 
-          {/* TRACK CAROUSEL WITH ARROWS */}
-          <CarouselWrap>
-            <ArrowNavBtn
-              type="button"
-              onClick={handlePrev}
-              aria-label="Previous Route"
-            >
-              <ChevronLeft size={18} />
-            </ArrowNavBtn>
+              <SidebarSection>
+                <span className="section-label">Difficulty Level</span>
+                <SidebarPillGroup>
+                  {difficulties.map((diff) => (
+                    <SidebarPill
+                      key={diff.value}
+                      type="button"
+                      $active={settings.gameplay.difficulty === diff.value}
+                      onClick={() => {
+                        updateSetting('gameplay', 'difficulty', diff.value);
+                        getAudioManager().playCue('ui');
+                      }}
+                    >
+                      {diff.label}
+                    </SidebarPill>
+                  ))}
+                </SidebarPillGroup>
+              </SidebarSection>
 
-            <TrackRail ref={railRef} role="region" aria-label="Route Selection">
+              <SidebarSection>
+                <span className="section-label">Selected Machine</span>
+                <SidebarVehicleCard href="/garage" title="Switch or Tune Machine in Garage">
+                  <div className="veh-info">
+                    <Car size={13} />
+                    <span>{car.name}</span>
+                    <span className="class-tag">{car.className}</span>
+                  </div>
+                  <span className="veh-action">GARAGE →</span>
+                </SidebarVehicleCard>
+              </SidebarSection>
+            </>
+          )}
+
+          {/* TAB 2: ROUTE DIRECTORY LIST */}
+          {activeTab === 'routes' && (
+            <RosterList>
               {DESTINATIONS.map((dest) => {
                 const isSelected = dest.id === destination.id;
                 const isLocked = !unlockedDestinations.includes(dest.id);
 
                 return (
-                  <TrackCard
+                  <RosterItem
                     key={dest.id}
-                    data-dest-id={dest.id}
                     type="button"
                     $active={isSelected}
                     $locked={isLocked}
                     onClick={() => handleRouteSelect(dest.id)}
                   >
-                    <div className="card-top">
-                      <span>{dest.environment}</span>
-                      {isLocked ? (
-                        <Lock size={10} />
+                    <div className="item-left">
+                      <div className="item-class">{dest.region} · {dest.environment.toUpperCase()}</div>
+                      <div className="item-name">{dest.name}</div>
+                    </div>
+                    <div className="item-right">
+                      {isSelected ? (
+                        <span className="tag-equipped">
+                          <Check size={11} /> SELECTED
+                        </span>
+                      ) : !isLocked ? (
+                        <span className="tag-owned">{formatDistance(dest.distanceTarget)}</span>
                       ) : (
-                        <Sparkles size={10} color={isSelected ? 'var(--lime)' : undefined} />
+                        <span className="tag-locked">
+                          <Lock size={10} /> LOCKED
+                        </span>
                       )}
                     </div>
-                    <strong>{dest.name}</strong>
-                    <div className="card-bottom">
-                      <span>{dest.difficulty}</span>
-                      <span>·</span>
-                      <span>{formatDistance(dest.distanceTarget)}</span>
-                    </div>
-                  </TrackCard>
+                  </RosterItem>
                 );
               })}
-            </TrackRail>
+            </RosterList>
+          )}
+        </SidebarScroll>
 
-            <ArrowNavBtn
-              type="button"
-              onClick={handleNext}
-              aria-label="Next Route"
-            >
-              <ChevronRight size={18} />
-            </ArrowNavBtn>
-          </CarouselWrap>
-        </div>
-      </Overlay>
+        <SidebarFooter>
+          <SidebarPrimaryBtn
+            type="button"
+            onClick={handleStart}
+            disabled={starting}
+            aria-label="Launch Race"
+          >
+            <Play size={18} fill="currentColor" /> Launch Race · {runMode === 'endless' ? 'Endless' : 'Sprint'}
+          </SidebarPrimaryBtn>
+        </SidebarFooter>
+      </GameSidebarRoot>
     </Stage>
   );
 }

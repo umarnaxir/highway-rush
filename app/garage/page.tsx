@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import styled, { keyframes } from 'styled-components';
+import styled from 'styled-components';
 import {
   ArrowLeft,
   Car,
@@ -40,12 +40,30 @@ import { useUiStore } from '@/lib/store/useUiStore';
 import { formatNumber, titleCase } from '@/lib/ui/format';
 import type {
   CarCustomization,
-  DecalStyle,
   SpoilerStyle,
   UpgradeKey,
-  WheelStyle,
 } from '@/lib/types';
 import { media } from '@/lib/ui/theme';
+import {
+  GameSidebarRoot,
+  MobileDragHandle,
+  SidebarScroll,
+  SidebarFooter,
+  SidebarKicker,
+  SidebarTitle,
+  SidebarSubtitle,
+  SidebarBadgeRow,
+  SidebarBadge,
+  SidebarBarRow,
+  SidebarSection,
+  SidebarPillGroup,
+  SidebarPill,
+  SidebarPrimaryBtn,
+  SidebarHeaderRow,
+  QuickCycleGroup,
+  RosterList,
+  RosterItem,
+} from '@/components/ui/GameSidebar';
 
 const paintSwatches = [
   '#d7ff3f',
@@ -104,10 +122,8 @@ const Overlay = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-    max(14px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  padding: max(14px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
 `;
 
 const TopNav = styled.header`
@@ -117,6 +133,11 @@ const TopNav = styled.header`
   gap: 16px;
   pointer-events: auto;
   width: 100%;
+  max-width: calc(100% - clamp(340px, 24vw, 390px) - 24px);
+
+  ${media.mobile} {
+    max-width: 100%;
+  }
 `;
 
 const BackPill = styled(Link)`
@@ -202,358 +223,26 @@ const HeaderStats = styled.div`
   }
 `;
 
-/* CENTERED HERO SECTION */
-const CenterHero = styled.div`
-  pointer-events: auto;
-  margin: auto auto 12px auto;
-  max-width: 880px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 12px;
-  padding: 0 12px;
-`;
-
-const KickerBadge = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(215, 255, 63, 0.35);
-  background: rgba(215, 255, 63, 0.08);
-  color: var(--lime);
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-  backdrop-filter: blur(8px);
-`;
-
-const HeroTitle = styled.h1`
-  font-family: ${({ theme }) => theme.fonts.display};
-  font-size: clamp(32px, 5vw, 64px);
-  font-style: italic;
-  font-weight: 900;
-  line-height: 0.88;
-  letter-spacing: -0.04em;
-  text-transform: uppercase;
-  text-shadow: 0 6px 36px rgba(0, 0, 0, 0.9);
-  margin: 0;
-
-  em {
-    color: var(--lime);
-    font-style: inherit;
-    margin-left: 6px;
-  }
-`;
-
-/* 4-COLUMN CENTERED TELEMETRY MATRIX */
-const TelemetryGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  width: 100%;
-  max-width: 680px;
-  margin: 2px auto 0 auto;
-
-  ${media.mobile} {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-  }
-`;
-
-const TelemetryBox = styled.div`
-  background: rgba(10, 14, 18, 0.82);
-  border: 1px solid var(--line-strong);
-  border-radius: 5px;
-  padding: 8px 10px;
-  backdrop-filter: blur(10px);
-  text-align: left;
-
-  .head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 8px;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin-bottom: 4px;
-
-    b {
-      color: var(--text);
-      font-family: ${({ theme }) => theme.fonts.mono};
-      font-size: 9px;
-    }
-  }
-
-  .meter {
-    height: 3px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.1);
-    overflow: hidden;
-
-    .fill {
-      height: 100%;
-      border-radius: inherit;
-      background: var(--lime);
-      box-shadow: 0 0 8px rgba(215, 255, 63, 0.45);
-      transition: width 0.3s ease;
-    }
-  }
-`;
-
-const pulseGlow = keyframes`
-  0%, 100% { box-shadow: 0 0 24px rgba(215, 255, 63, 0.4), 0 0 50px rgba(215, 255, 63, 0.15); }
-  50% { box-shadow: 0 0 38px rgba(215, 255, 63, 0.65), 0 0 75px rgba(215, 255, 63, 0.3); }
-`;
-
-const MainActionBtn = styled.button<{ $locked?: boolean }>`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-width: 290px;
-  padding: 15px 30px;
-  border-radius: 4px;
-  border: none;
-  background: ${({ $locked }) => ($locked ? '#f59e0b' : 'var(--lime)')};
-  color: #07090b;
-  font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 16px;
-  font-style: italic;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  animation: ${pulseGlow} 2.6s infinite ease-in-out;
-  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-  text-decoration: none;
-
-  &:hover:not(:disabled) {
-    transform: scale(1.03);
-    background: ${({ $locked }) => ($locked ? '#fbbf24' : '#e6ff66')};
-  }
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    background: var(--line-strong);
-    color: var(--text-dim);
-    animation: none;
-    box-shadow: none;
-  }
-
-  ${media.mobile} {
-    width: 100%;
-    min-width: 0;
-    padding: 13px 20px;
-  }
-`;
-
-/* CENTERED STUDIO CONTROLS */
-const StudioContainer = styled.div`
-  pointer-events: auto;
-  width: 100%;
-  max-width: 1060px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-`;
-
-const TabRow = styled.div`
-  display: flex;
-  gap: 6px;
-  background: rgba(10, 14, 18, 0.85);
-  padding: 4px;
+/* SIDEBAR STUDIO COMPONENTS */
+const TuningStageCard = styled.div`
+  padding: 10px 12px;
   border-radius: 6px;
-  border: 1px solid var(--line-strong);
-  backdrop-filter: blur(14px);
-  width: fit-content;
-  max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
-`;
-
-const TabBtn = styled.button<{ $active: boolean }>`
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 14px;
-  border-radius: 4px;
-  border: 1px solid ${({ $active }) => ($active ? 'var(--lime)' : 'transparent')};
-  background: ${({ $active }) => ($active ? 'rgba(215, 255, 63, 0.16)' : 'transparent')};
-  color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text-muted)')};
-  font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 11px;
-  font-style: italic;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-
-  &:hover {
-    color: var(--text);
-  }
-`;
-
-/* CAROUSEL SHELF FOR MACHINE ROSTER */
-const CarouselWrap = styled.div`
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-`;
-
-const ArrowNavBtn = styled.button`
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  flex: 0 0 auto;
-  border-radius: 4px;
-  border: 1px solid var(--line-strong);
-  background: rgba(10, 14, 18, 0.85);
-  backdrop-filter: blur(12px);
-  color: var(--text);
-  cursor: pointer;
-  transition: all 0.15s ease;
-
-  &:hover {
-    border-color: var(--lime);
-    color: var(--lime);
-    background: rgba(215, 255, 63, 0.12);
-    transform: scale(1.05);
-  }
-
-  ${media.mobile} {
-    display: none;
-  }
-`;
-
-const TrackRail = styled.div`
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding: 6px 4px;
-  scroll-behavior: smooth;
-  scrollbar-width: thin;
-  width: 100%;
-
-  &::-webkit-scrollbar {
-    height: 4px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: rgba(215, 255, 63, 0.25);
-    border-radius: 2px;
-  }
-`;
-
-const CarCard = styled.button<{ $active: boolean; $locked: boolean }>`
-  min-width: 136px;
-  flex: 0 0 auto;
-  padding: 10px 14px;
-  border-radius: 5px;
-  border: 1px solid
-    ${({ $active, theme }) => ($active ? theme.colors.lime : 'var(--line-strong)')};
-  background: ${({ $active }) =>
-    $active ? 'rgba(215, 255, 63, 0.16)' : 'rgba(10, 14, 18, 0.86)'};
-  backdrop-filter: blur(14px);
-  box-shadow: ${({ $active }) =>
-    $active ? '0 0 20px rgba(215, 255, 63, 0.35)' : '0 8px 24px rgba(0, 0, 0, 0.5)'};
-  text-align: left;
-  cursor: pointer;
-  transform: ${({ $active }) => ($active ? 'translateY(-3px)' : 'none')};
-  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
-  opacity: ${({ $locked }) => ($locked ? 0.65 : 1)};
-
-  .card-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 8px;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text-dim)')};
-    margin-bottom: 4px;
-  }
-
-  strong {
-    display: block;
-    font-family: ${({ theme }) => theme.fonts.display};
-    font-size: 12px;
-    font-style: italic;
-    font-weight: 900;
-    text-transform: uppercase;
-    color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text)')};
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .card-bottom {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 4px;
-    font-size: 8px;
-    font-weight: 700;
-    color: var(--text-dim);
-    text-transform: uppercase;
-  }
-
-  &:hover {
-    border-color: var(--lime);
-    transform: translateY(-4px);
-    background: rgba(215, 255, 63, 0.1);
-  }
-`;
-
-/* TUNING GRID PANEL */
-const TuningGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  width: 100%;
-  max-width: 880px;
-
-  ${media.desktop} {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  ${media.mobile} {
-    grid-template-columns: 1fr;
-    max-height: 220px;
-    overflow-y: auto;
-  }
-`;
-
-const UpgradeCard = styled.div`
-  padding: 14px;
-  border-radius: 6px;
-  border: 1px solid var(--line-strong);
-  background: rgba(10, 14, 18, 0.88);
-  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(12, 17, 24, 0.65);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 12px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  gap: 8px;
+  transition: border-color 0.15s ease;
+
+  &:hover {
+    border-color: rgba(215, 255, 63, 0.3);
+  }
 
   .head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 11px;
+    font-size: 9.5px;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -561,8 +250,8 @@ const UpgradeCard = styled.div`
     .icon-title {
       display: flex;
       align-items: center;
-      gap: 7px;
-      color: var(--text);
+      gap: 6px;
+      color: #ffffff;
       svg {
         color: var(--lime);
       }
@@ -571,39 +260,40 @@ const UpgradeCard = styled.div`
 
   .dots {
     display: flex;
-    gap: 4px;
+    gap: 3px;
     i {
       flex: 1;
-      height: 4px;
+      height: 3px;
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.12);
       &.on {
         background: var(--lime);
-        box-shadow: 0 0 8px rgba(215, 255, 63, 0.5);
+        box-shadow: 0 0 6px rgba(215, 255, 63, 0.5);
       }
     }
   }
 
   .desc {
-    font-size: 9px;
+    font-size: 8px;
     color: var(--text-dim);
     line-height: 1.3;
+    margin: 0;
   }
 `;
 
-const UpgradeBtn = styled.button`
+const UpgradeActionBtn = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   width: 100%;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: 4px;
   border: 1px solid rgba(215, 255, 63, 0.4);
   background: rgba(215, 255, 63, 0.12);
   color: var(--lime);
   font-family: ${({ theme }) => theme.fonts.mono};
-  font-size: 10px;
+  font-size: 8.5px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -618,65 +308,52 @@ const UpgradeBtn = styled.button`
   &:disabled {
     opacity: 0.35;
     cursor: not-allowed;
-    border-color: var(--line);
+    border-color: rgba(255, 255, 255, 0.08);
     color: var(--text-dim);
   }
 `;
 
-/* VISUAL CUSTOMIZATION PANEL */
-const VisualsPanel = styled.div`
-  width: 100%;
-  max-width: 820px;
-  padding: 16px 20px;
-  border-radius: 6px;
-  border: 1px solid var(--line-strong);
-  background: rgba(10, 14, 18, 0.88);
-  backdrop-filter: blur(16px);
+const VisualsBox = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
-
-  ${media.mobile} {
-    max-height: 240px;
-    overflow-y: auto;
-  }
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(12, 17, 24, 0.65);
 
   .section-row {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 6px;
 
     label {
-      font-size: 9px;
+      font-size: 7.5px;
       font-weight: 800;
       letter-spacing: 0.16em;
       text-transform: uppercase;
       color: var(--text-dim);
-      min-width: 110px;
     }
   }
 `;
 
 const SwatchRow = styled.div`
   display: flex;
-  gap: 7px;
+  gap: 6px;
   flex-wrap: wrap;
   align-items: center;
 `;
 
 const Swatch = styled.button<{ $color: string; $active: boolean }>`
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 2px solid ${({ $active }) => ($active ? 'var(--lime)' : 'rgba(255,255,255,.18)')};
   background: ${({ $color }) => $color};
   cursor: pointer;
   display: grid;
   place-items: center;
-  box-shadow: ${({ $active }) => ($active ? '0 0 10px rgba(215, 255, 63, 0.6)' : 'none')};
+  box-shadow: ${({ $active }) => ($active ? '0 0 8px rgba(215, 255, 63, 0.6)' : 'none')};
   transition: transform 0.15s ease;
 
   &:hover {
@@ -686,17 +363,17 @@ const Swatch = styled.button<{ $color: string; $active: boolean }>`
 
 const PillRow = styled.div`
   display: flex;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
 `;
 
 const OptionPill = styled.button<{ $active: boolean }>`
-  padding: 6px 12px;
+  padding: 5px 9px;
   border-radius: 4px;
-  border: 1px solid ${({ $active }) => ($active ? 'var(--lime)' : 'var(--line-strong)')};
+  border: 1px solid ${({ $active }) => ($active ? 'var(--lime)' : 'rgba(255,255,255,0.08)')};
   background: ${({ $active }) => ($active ? 'rgba(215,255,63,.14)' : 'rgba(255,255,255,.03)')};
   color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text-muted)')};
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -704,7 +381,7 @@ const OptionPill = styled.button<{ $active: boolean }>`
   transition: all 0.15s ease;
 
   &:hover {
-    color: var(--text);
+    color: #ffffff;
     border-color: var(--lime);
   }
 `;
@@ -713,7 +390,6 @@ export default function GaragePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'roster' | 'upgrades' | 'customize'>('roster');
   const [activeCarId, setActiveCarId] = useState<string | null>(null);
-  const railRef = useRef<HTMLDivElement>(null);
 
   const coins = useGameStore((state) => state.coins);
   const ownedCars = useGameStore((state) => state.ownedCars);
@@ -738,6 +414,11 @@ export default function GaragePage() {
   const upgrades = useMemo(() => getUpgrades(customization), [customization]);
   const isOwned = ownedCars.includes(car.id);
   const isSelected = selectedCarId === car.id;
+
+  const currentIndex = useMemo(
+    () => CARS.findIndex((c) => c.id === car.id),
+    [car.id],
+  );
 
   const handleCarSelect = useCallback((id: string) => {
     setActiveCarId(id);
@@ -803,19 +484,16 @@ export default function GaragePage() {
     getAudioManager().playCue('ui');
   }, [car.id, customization, updateCustomization]);
 
-  // Keyboard controls for carousel and action execution
+  // Keyboard controls for cycling and quick action
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (activeTab === 'roster') {
-        if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          handlePrev();
-        } else if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          handleNext();
-        }
-      }
-      if (e.key === 'Enter') {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handlePrev();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleNext();
+      } else if (e.key === 'Enter') {
         if (!isOwned && coins >= car.price) {
           handleBuy();
         } else if (isOwned && !isSelected) {
@@ -827,19 +505,11 @@ export default function GaragePage() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTab, car.price, coins, handleBuy, handleEquip, handleNext, handlePrev, isOwned, isSelected, router]);
-
-  // Keep active card centered in the roster rail
-  useEffect(() => {
-    const activeEl = railRef.current?.querySelector<HTMLElement>(`[data-car-id="${car.id}"]`);
-    if (activeEl) {
-      activeEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    }
-  }, [car.id, activeTab]);
+  }, [car.price, coins, handleBuy, handleEquip, handleNext, handlePrev, isOwned, isSelected, router]);
 
   return (
     <Stage>
-      {/* 3D Interactive Turntable Showroom */}
+      {/* 3D Interactive Turntable Showroom with 100% unobstructed view */}
       <BackgroundCanvas>
         <PreviewCanvas
           car={car}
@@ -872,190 +542,184 @@ export default function GaragePage() {
             </div>
           </HeaderStats>
         </TopNav>
+      </Overlay>
 
-        {/* CENTERED HERO WITH SPECS AND CALL TO ACTION */}
-        <CenterHero>
-          <KickerBadge>
-            <Sparkles size={11} /> {car.className.toUpperCase()} CLASS · PERFORMANCE TUNED · HIGHWAY SPEC
-          </KickerBadge>
+      {/* ALL-IN-ONE RIGHT-SIDE GLASSMORPHISM SIDEBAR */}
+      <GameSidebarRoot aria-label="Machine Specification & Studio Controls">
+        <MobileDragHandle />
+        <SidebarScroll>
+          {/* HEADER ROW WITH QUICK CAR ARROWS */}
+          <div>
+            <SidebarKicker>
+              <Sparkles size={11} /> {car.className.toUpperCase()} CLASS {'//'} SPECIFICATION
+            </SidebarKicker>
+            <SidebarHeaderRow>
+              <SidebarTitle>{car.name}</SidebarTitle>
+              <QuickCycleGroup>
+                <button type="button" onClick={handlePrev} title="Previous Machine (Left Arrow)">
+                  <ChevronLeft size={15} />
+                </button>
+                <span>{currentIndex + 1}/{CARS.length}</span>
+                <button type="button" onClick={handleNext} title="Next Machine (Right Arrow)">
+                  <ChevronRight size={15} />
+                </button>
+              </QuickCycleGroup>
+            </SidebarHeaderRow>
+            <SidebarSubtitle>
+              {isSelected
+                ? 'Active Highway Machine'
+                : isOwned
+                  ? 'Owned in Personal Collection'
+                  : 'Locked Showroom Spec'}
+            </SidebarSubtitle>
+          </div>
 
-          <HeroTitle>{car.name}</HeroTitle>
+          <SidebarBadgeRow>
+            <SidebarBadge $tone="var(--lime)">
+              {car.className.toUpperCase()}
+            </SidebarBadge>
+            <SidebarBadge $tone={isSelected ? 'var(--lime)' : isOwned ? 'var(--text)' : 'var(--warning)'}>
+              {isSelected ? 'EQUIPPED' : isOwned ? 'OWNED' : `${formatNumber(car.price)} COINS`}
+            </SidebarBadge>
+            <SidebarBadge>
+              {car.drivetrain.toUpperCase()} · {car.powerHp} HP
+            </SidebarBadge>
+          </SidebarBadgeRow>
 
-          {/* 4-COLUMN CENTERED PERFORMANCE TELEMETRY */}
-          <TelemetryGrid>
-            <TelemetryBox>
+          {/* TELEMETRY PERFORMANCE BARS */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <SidebarBarRow>
               <div className="head">
                 <span>Top Speed</span>
                 <b>{stats.speed} KM/H</b>
               </div>
-              <div className="meter">
+              <div className="track">
                 <div
                   className="fill"
                   style={{ width: `${Math.min(100, (stats.speed / 100) * 100)}%` }}
                 />
               </div>
-            </TelemetryBox>
+            </SidebarBarRow>
 
-            <TelemetryBox>
+            <SidebarBarRow>
               <div className="head">
                 <span>Acceleration</span>
                 <b>{stats.acceleration}</b>
               </div>
-              <div className="meter">
+              <div className="track">
                 <div
                   className="fill"
                   style={{ width: `${Math.min(100, (stats.acceleration / 100) * 100)}%` }}
                 />
               </div>
-            </TelemetryBox>
+            </SidebarBarRow>
 
-            <TelemetryBox>
+            <SidebarBarRow>
               <div className="head">
                 <span>Handling</span>
                 <b>{stats.handling}</b>
               </div>
-              <div className="meter">
+              <div className="track">
                 <div
                   className="fill"
                   style={{ width: `${Math.min(100, (stats.handling / 100) * 100)}%` }}
                 />
               </div>
-            </TelemetryBox>
+            </SidebarBarRow>
 
-            <TelemetryBox>
+            <SidebarBarRow>
               <div className="head">
                 <span>Nitro Boost</span>
                 <b>{stats.nitro}</b>
               </div>
-              <div className="meter">
+              <div className="track">
                 <div
                   className="fill"
                   style={{ width: `${Math.min(100, (stats.nitro / 100) * 100)}%` }}
                 />
               </div>
-            </TelemetryBox>
-          </TelemetryGrid>
+            </SidebarBarRow>
+          </div>
 
-          {/* ACTION CTA BUTTON */}
-          {!isOwned ? (
-            <MainActionBtn
-              type="button"
-              $locked
-              disabled={coins < car.price}
-              onClick={handleBuy}
-            >
-              <Unlock size={18} /> Unlock Machine ({formatNumber(car.price)} Coins)
-            </MainActionBtn>
-          ) : !isSelected ? (
-            <MainActionBtn type="button" onClick={handleEquip}>
-              <Check size={18} /> Equip Machine
-            </MainActionBtn>
-          ) : (
-            <MainActionBtn as={Link} href="/play">
-              <Play size={18} fill="currentColor" /> Select &amp; Race Machine
-            </MainActionBtn>
-          )}
-        </CenterHero>
+          {/* STUDIO CONTROLS: TABS INSIDE SIDEBAR */}
+          <SidebarSection>
+            <span className="section-label">Garage Studio Panel</span>
+            <SidebarPillGroup>
+              <SidebarPill
+                type="button"
+                $active={activeTab === 'roster'}
+                onClick={() => {
+                  setActiveTab('roster');
+                  getAudioManager().playCue('ui');
+                }}
+              >
+                <Car size={11} style={{ marginRight: 4 }} /> Roster ({ownedCars.length}/{CARS.length})
+              </SidebarPill>
+              <SidebarPill
+                type="button"
+                $active={activeTab === 'upgrades'}
+                onClick={() => {
+                  setActiveTab('upgrades');
+                  getAudioManager().playCue('ui');
+                }}
+              >
+                <Wrench size={11} style={{ marginRight: 4 }} /> Tuning
+              </SidebarPill>
+              <SidebarPill
+                type="button"
+                $active={activeTab === 'customize'}
+                onClick={() => {
+                  setActiveTab('customize');
+                  getAudioManager().playCue('ui');
+                }}
+              >
+                <Palette size={11} style={{ marginRight: 4 }} /> Visuals
+              </SidebarPill>
+            </SidebarPillGroup>
+          </SidebarSection>
 
-        {/* CENTERED STUDIO SHELF & CONTROLS */}
-        <StudioContainer>
-          <TabRow>
-            <TabBtn
-              type="button"
-              $active={activeTab === 'roster'}
-              onClick={() => {
-                setActiveTab('roster');
-                getAudioManager().playCue('ui');
-              }}
-            >
-              <Car size={13} /> Machine Roster ({ownedCars.length}/{CARS.length})
-            </TabBtn>
-            <TabBtn
-              type="button"
-              $active={activeTab === 'upgrades'}
-              onClick={() => {
-                setActiveTab('upgrades');
-                getAudioManager().playCue('ui');
-              }}
-            >
-              <Wrench size={13} /> Tuning Stages
-            </TabBtn>
-            <TabBtn
-              type="button"
-              $active={activeTab === 'customize'}
-              onClick={() => {
-                setActiveTab('customize');
-                getAudioManager().playCue('ui');
-              }}
-            >
-              <Palette size={13} /> Visual Customization
-            </TabBtn>
-          </TabRow>
-
-          {/* TAB 1: MACHINE ROSTER HORIZONTAL CAROUSEL */}
+          {/* TAB 1: MACHINE ROSTER LIST */}
           {activeTab === 'roster' && (
-            <CarouselWrap>
-              <ArrowNavBtn
-                type="button"
-                onClick={handlePrev}
-                aria-label="Previous Vehicle"
-              >
-                <ChevronLeft size={18} />
-              </ArrowNavBtn>
+            <RosterList>
+              {CARS.map((c) => {
+                const owned = ownedCars.includes(c.id);
+                const selected = c.id === car.id;
+                const isCurrentEquipped = selectedCarId === c.id;
 
-              <TrackRail ref={railRef} role="region" aria-label="Vehicle Roster">
-                {CARS.map((c) => {
-                  const owned = ownedCars.includes(c.id);
-                  const selected = c.id === car.id;
-                  const isCurrentEquipped = selectedCarId === c.id;
-
-                  return (
-                    <CarCard
-                      key={c.id}
-                      data-car-id={c.id}
-                      type="button"
-                      $active={selected}
-                      $locked={!owned}
-                      onClick={() => handleCarSelect(c.id)}
-                    >
-                      <div className="card-top">
-                        <span>{c.className}</span>
-                        {!owned ? (
-                          <Lock size={10} />
-                        ) : isCurrentEquipped ? (
-                          <Check size={10} color="var(--lime)" />
-                        ) : (
-                          <Sparkles size={10} />
-                        )}
-                      </div>
-                      <strong>{c.name}</strong>
-                      <div className="card-bottom">
-                        {isCurrentEquipped ? (
-                          <span style={{ color: 'var(--lime)', fontWeight: 800 }}>EQUIPPED</span>
-                        ) : owned ? (
-                          <span>OWNED</span>
-                        ) : (
-                          <span>{formatNumber(c.price)} COINS</span>
-                        )}
-                      </div>
-                    </CarCard>
-                  );
-                })}
-              </TrackRail>
-
-              <ArrowNavBtn
-                type="button"
-                onClick={handleNext}
-                aria-label="Next Vehicle"
-              >
-                <ChevronRight size={18} />
-              </ArrowNavBtn>
-            </CarouselWrap>
+                return (
+                  <RosterItem
+                    key={c.id}
+                    type="button"
+                    $active={selected}
+                    $locked={!owned}
+                    onClick={() => handleCarSelect(c.id)}
+                  >
+                    <div className="item-left">
+                      <div className="item-class">{c.className}</div>
+                      <div className="item-name">{c.name}</div>
+                    </div>
+                    <div className="item-right">
+                      {isCurrentEquipped ? (
+                        <span className="tag-equipped">
+                          <Check size={11} /> EQUIPPED
+                        </span>
+                      ) : owned ? (
+                        <span className="tag-owned">OWNED</span>
+                      ) : (
+                        <span className="tag-locked">
+                          <Lock size={10} /> {formatNumber(c.price)}
+                        </span>
+                      )}
+                    </div>
+                  </RosterItem>
+                );
+              })}
+            </RosterList>
           )}
 
           {/* TAB 2: TUNING STAGES CONSOLE */}
           {activeTab === 'upgrades' && (
-            <TuningGrid>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {UPGRADE_DEFS.map((stg) => {
                 const level = upgrades[stg.key] ?? 0;
                 const maxed = level >= MAX_UPGRADE_LEVEL;
@@ -1063,38 +727,33 @@ export default function GaragePage() {
 
                 const icon =
                   stg.key === 'engine' ? (
-                    <Zap size={14} />
+                    <Zap size={12} />
                   ) : stg.key === 'tyres' ? (
-                    <Gauge size={14} />
+                    <Gauge size={12} />
                   ) : stg.key === 'brakes' ? (
-                    <ShieldCheck size={14} />
+                    <ShieldCheck size={12} />
                   ) : (
-                    <Flame size={14} />
+                    <Flame size={12} />
                   );
 
                 return (
-                  <UpgradeCard key={stg.key}>
-                    <div>
-                      <div className="head">
-                        <div className="icon-title">
-                          {icon}
-                          <span>{stg.label}</span>
-                        </div>
-                        <span style={{ color: 'var(--lime)', fontFamily: 'var(--font-mono)' }}>
-                          LVL {level}/{MAX_UPGRADE_LEVEL}
-                        </span>
+                  <TuningStageCard key={stg.key}>
+                    <div className="head">
+                      <div className="icon-title">
+                        {icon}
+                        <span>{stg.label}</span>
                       </div>
-                      <div className="dots" style={{ marginTop: 8 }}>
-                        {Array.from({ length: MAX_UPGRADE_LEVEL }, (_, i) => (
-                          <i key={i} className={i < level ? 'on' : ''} />
-                        ))}
-                      </div>
-                      <p className="desc" style={{ marginTop: 8 }}>
-                        {stg.description}
-                      </p>
+                      <span style={{ color: 'var(--lime)', fontFamily: 'var(--font-mono)' }}>
+                        LVL {level}/{MAX_UPGRADE_LEVEL}
+                      </span>
                     </div>
-
-                    <UpgradeBtn
+                    <div className="dots">
+                      {Array.from({ length: MAX_UPGRADE_LEVEL }, (_, i) => (
+                        <i key={i} className={i < level ? 'on' : ''} />
+                      ))}
+                    </div>
+                    <p className="desc">{stg.description}</p>
+                    <UpgradeActionBtn
                       type="button"
                       disabled={maxed || !isOwned || cost === null || coins < cost}
                       onClick={() => handleUpgrade(stg.key)}
@@ -1102,18 +761,18 @@ export default function GaragePage() {
                       {maxed || cost === null
                         ? 'MAXED OUT'
                         : !isOwned
-                          ? 'OWN CAR TO TUNE'
+                          ? 'OWN MACHINE TO TUNE'
                           : `+ STAGE ${level + 1} (${formatNumber(cost)} COINS)`}
-                    </UpgradeBtn>
-                  </UpgradeCard>
+                    </UpgradeActionBtn>
+                  </TuningStageCard>
                 );
               })}
-            </TuningGrid>
+            </div>
           )}
 
           {/* TAB 3: VISUAL CUSTOMIZATION */}
           {activeTab === 'customize' && (
-            <VisualsPanel>
+            <VisualsBox>
               <div className="section-row">
                 <label>Factory Paint</label>
                 <SwatchRow>
@@ -1126,7 +785,7 @@ export default function GaragePage() {
                       aria-label={`Select paint ${color}`}
                     >
                       {customization.paint.toLowerCase() === color.toLowerCase() && (
-                        <Check size={11} color="#000" />
+                        <Check size={10} color="#000" />
                       )}
                     </Swatch>
                   ))}
@@ -1155,14 +814,14 @@ export default function GaragePage() {
                     type="button"
                     onClick={() => applyCustomization({ underglow: null })}
                     style={{
-                      width: 24,
-                      height: 24,
+                      width: 22,
+                      height: 22,
                       borderRadius: '50%',
                       border: '1px solid var(--line-strong)',
                       background: 'none',
                       color: 'var(--text-dim)',
                       cursor: 'pointer',
-                      fontSize: 10,
+                      fontSize: 9,
                       fontWeight: 800,
                     }}
                     title="Remove Underglow"
@@ -1178,16 +837,37 @@ export default function GaragePage() {
                       aria-label={`Select underglow ${color}`}
                     >
                       {customization.underglow === color && (
-                        <Check size={11} color="#000" />
+                        <Check size={10} color="#000" />
                       )}
                     </Swatch>
                   ))}
                 </SwatchRow>
               </div>
-            </VisualsPanel>
+            </VisualsBox>
           )}
-        </StudioContainer>
-      </Overlay>
+        </SidebarScroll>
+
+        <SidebarFooter>
+          {!isOwned ? (
+            <SidebarPrimaryBtn
+              type="button"
+              $tone="amber"
+              disabled={coins < car.price}
+              onClick={handleBuy}
+            >
+              <Unlock size={18} /> Unlock Machine ({formatNumber(car.price)} Coins)
+            </SidebarPrimaryBtn>
+          ) : !isSelected ? (
+            <SidebarPrimaryBtn type="button" onClick={handleEquip}>
+              <Check size={18} /> Equip Machine
+            </SidebarPrimaryBtn>
+          ) : (
+            <SidebarPrimaryBtn as={Link} href="/play">
+              <Play size={18} fill="currentColor" /> Drive Now
+            </SidebarPrimaryBtn>
+          )}
+        </SidebarFooter>
+      </GameSidebarRoot>
     </Stage>
   );
 }

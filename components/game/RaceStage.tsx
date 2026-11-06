@@ -1319,11 +1319,18 @@ export function RaceStage({
   }, [endless]);
 
   const handleControl = useCallback(
-    (action: 'steerLeft' | 'steerRight' | 'accelerate' | 'brake' | 'nitro', active: boolean) => {
+    (
+      action: 'steerLeft' | 'steerRight' | 'accelerate' | 'brake' | 'nitro' | 'horn' | 'switchCamera',
+      active: boolean,
+    ) => {
       engineRef.current?.setVirtualControl(action, active);
     },
     [],
   );
+
+  const handleToggleCamera = useCallback(() => {
+    engineRef.current?.toggleCamera();
+  }, []);
 
   const handleDragSteer = useCallback((value: number) => {
     engineRef.current?.setAnalogSteer(value);
@@ -1386,6 +1393,7 @@ export function RaceStage({
             showFps={settings.graphics.showFps}
             touch={touch}
             onPause={() => engineRef.current?.pause()}
+            onToggleCamera={handleToggleCamera}
           />
         ) : (
           <RaceHudFallback onPause={() => engineRef.current?.pause()} />

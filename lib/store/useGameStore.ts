@@ -70,6 +70,8 @@ export const DEFAULT_SETTINGS: Settings = {
       brake: 'ArrowDown',
       nitro: 'Space',
       pause: 'Escape',
+      horn: 'KeyH',
+      switchCamera: 'KeyC',
     },
   },
   gameplay: {

@@ -154,6 +154,11 @@ export class AudioManager {
   private nitroRumbleGain: GainNode | null = null;
   private nitroRumbleFilter: BiquadFilterNode | null = null;
 
+  private hornOsc1: OscillatorNode | null = null;
+  private hornOsc2: OscillatorNode | null = null;
+  private hornGain: GainNode | null = null;
+  private isHornPlaying = false;
+
   private testEngineTimer: ReturnType<typeof setInterval> | null = null;
   private noiseBuffer: AudioBuffer | null = null;
   private volumes: Settings['audio'] = {
@@ -481,6 +486,79 @@ export class AudioManager {
     this.windFilter = null;
     this.engineStarted = false;
     this.raceActive = false;
+    this.stopHorn();
+  }
+
+  startHorn(): void {
+    if (!this.ctx || !this.sfxBus || !this.unlocked || this.isHornPlaying || this.volumes.muted) return;
+    this.isHornPlaying = true;
+    const t = this.ctx.currentTime;
+
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    osc1.type = 'sawtooth';
+    osc2.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(425, t);
+    osc2.frequency.setValueAtTime(515, t);
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(940, t);
+    filter.Q.setValueAtTime(2.4, t);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.25, t + 0.035);
+
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxBus);
+
+    osc1.start(t);
+    osc2.start(t);
+
+    this.hornOsc1 = osc1;
+    this.hornOsc2 = osc2;
+    this.hornGain = gain;
+  }
+
+  stopHorn(): void {
+    if (!this.ctx || !this.isHornPlaying) return;
+    this.isHornPlaying = false;
+    const t = this.ctx.currentTime;
+    if (this.hornGain) {
+      try {
+        this.hornGain.gain.setValueAtTime(this.hornGain.gain.value, t);
+        this.hornGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      } catch {
+        // Fallback
+      }
+    }
+    const o1 = this.hornOsc1;
+    const o2 = this.hornOsc2;
+    const g = this.hornGain;
+    window.setTimeout(() => {
+      try {
+        o1?.stop();
+        o2?.stop();
+        o1?.disconnect();
+        o2?.disconnect();
+        g?.disconnect();
+      } catch {
+        // Safe disposal
+      }
+    }, 60);
+    this.hornOsc1 = null;
+    this.hornOsc2 = null;
+    this.hornGain = null;
+  }
+
+  honk(duration = 0.35): void {
+    this.startHorn();
+    window.setTimeout(() => {
+      this.stopHorn();
+    }, duration * 1000);
   }
 
   playCue(cue: AudioCue): void {
@@ -523,6 +601,9 @@ export class AudioManager {
       case 'nitro':
         this.noiseSweep(t, 0.65, 280, 2600, 0.11);
         this.tone(t, 160, 0.5, 'sawtooth', 0.055, 420);
+        break;
+      case 'horn':
+        this.honk(0.35);
         break;
       case 'purchase':
         this.arpeggio(t, [392, 493.88, 587.33, 783.99], 0.09, 0.06, 'sine');

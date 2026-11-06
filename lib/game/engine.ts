@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type {
+  CameraView,
   CarCustomization,
   CarDefinition,
   DestinationDefinition,
@@ -13,7 +14,7 @@ import type {
 } from '@/lib/types';
 import type { AudioManager } from '@/lib/audio/AudioManager';
 import { effectiveCarStats } from '@/lib/data/cars';
-import { createCarModel, type CarModel } from './carModel';
+import { createCarModel, type CarModel, type IndicatorState } from './carModel';
 import { buildEnvironment, type EnvironmentHandle, ROAD_CONSTANTS } from './environment';
 import { disposeObject3D, makeCanvasTexture } from './dispose';
 import { InputController } from './input';
@@ -45,6 +46,10 @@ interface TrafficUnit {
   active: boolean;
   color: string;
   wobble: number;
+  laneChangeState: 'idle' | 'signaling' | 'changing';
+  signalingTimer: number;
+  intendedLane: number;
+  indicatorState: IndicatorState;
 }
 
 interface CoinUnit {
@@ -227,6 +232,9 @@ export class HighwayRushEngine {
   private readyOrbit = 0;
   private lastGamepad = false;
   private blinkTimer = 0;
+  private cameraMode: CameraView = 'exterior';
+  private wasHonking = false;
+  private previousSwitchCamPressed = false;
 
   constructor(options: EngineOptions) {
     this.options = options;
@@ -283,6 +291,7 @@ export class HighwayRushEngine {
     });
     this.playerGroup = this.player.group;
     this.playerGroup.position.set(this.playerX, 0, 0);
+    this.player.setCockpitVisibility(this.cameraMode === 'cockpit');
     this.world.add(this.playerGroup);
 
     this.createTraffic();
@@ -383,10 +392,11 @@ export class HighwayRushEngine {
   }
 
   private currentFov(): number {
+    const baseFov = this.cameraMode === 'cockpit' ? this.settings.gameplay.fov + 4 : this.settings.gameplay.fov;
     const speedT = Math.min(1, this.speed / 80);
-    const target = this.settings.gameplay.fov + speedT * 6 + (this.boosting ? 11 : 0);
+    const target = baseFov + speedT * 6 + (this.boosting ? 11 : 0);
     const motionScale = this.settings.accessibility.reducedMotion ? 0.35 : 1;
-    return this.settings.gameplay.fov + (target - this.settings.gameplay.fov) * motionScale;
+    return baseFov + (target - baseFov) * motionScale;
   }
 
   private createTraffic(): void {
@@ -426,6 +436,10 @@ export class HighwayRushEngine {
         active: false,
         color,
         wobble: Math.random() * 10,
+        laneChangeState: 'idle',
+        signalingTimer: 0,
+        intendedLane: lane,
+        indicatorState: 'none',
       });
     }
   }
@@ -637,6 +651,7 @@ export class HighwayRushEngine {
     this.playerGroup.position.set(this.playerX, 0, 0);
     this.playerGroup.rotation.set(0, 0, 0);
     this.player.setBrake(false);
+    this.player.setCockpitVisibility(this.cameraMode === 'cockpit');
     this.playerGroup.visible = true;
 
     this.traffic.forEach((unit, index) => {
@@ -675,6 +690,11 @@ export class HighwayRushEngine {
     unit.collided = false;
     unit.changeTimer = 3 + Math.random() * 5;
     unit.active = true;
+    unit.laneChangeState = 'idle';
+    unit.signalingTimer = 0;
+    unit.intendedLane = lane;
+    unit.indicatorState = 'none';
+    unit.model.setIndicatorState('none');
     unit.model.group.visible = true;
     unit.model.group.position.set(LANES[lane], 0, z);
     unit.model.group.rotation.set(0, 0, 0);
@@ -801,6 +821,50 @@ export class HighwayRushEngine {
   }
 
   private updateCamera(dt: number, paused: boolean): void {
+    if (this.cameraMode === 'cockpit') {
+      const speedT = Math.min(1, this.speed / 85);
+      const accelPitch = (this.speed > 5 ? 0.012 : 0) + (this.boosting ? 0.02 : 0);
+      const headSway = this.steerVisual * -0.04;
+      const targetX = this.playerX - 0.28 + headSway;
+      const targetY = 1.34 - accelPitch;
+      const targetZ = 0.14;
+
+      const lambda = paused ? 6 : 14;
+      this.camera.position.x = damp(this.camera.position.x, targetX, lambda, dt);
+      this.camera.position.y = damp(this.camera.position.y, targetY, lambda, dt);
+      this.camera.position.z = damp(this.camera.position.z, targetZ, lambda, dt);
+
+      const shakeAmount =
+        this.settings.accessibility.reducedMotion || paused || this.mode !== 'running'
+          ? 0
+          : this.shake * 0.45 + (this.boosting ? 0.014 : 0) + speedT * 0.007;
+      if (shakeAmount > 0.001) {
+        const t = performance.now() * 0.02;
+        this.camera.position.x += Math.sin(t * 1.7) * shakeAmount;
+        this.camera.position.y += Math.sin(t * 2.3 + 1.7) * shakeAmount * 0.6;
+      }
+      this.shake = Math.max(0, this.shake - dt * 2.4);
+
+      // Focus straight down the highway on the road lanes and traffic
+      const lookDist = 26;
+      const lookTargetX = this.playerX - 0.28 + this.steerVisual * 1.3;
+      const lookTargetY = 0.88 + accelPitch * 0.3;
+      const lookTargetZ = -lookDist;
+      this.camera.lookAt(lookTargetX, lookTargetY, lookTargetZ);
+      this.camera.rotation.z += -this.steerVisual * 0.035;
+
+      const nextFov = this.currentFov();
+      if (Math.abs(this.camera.fov - nextFov) > 0.01) {
+        this.camera.fov = damp(this.camera.fov, nextFov, 4, dt);
+        this.camera.updateProjectionMatrix();
+      }
+
+      this.player.setSteeringWheelRotation(-this.steerVisual * 1.8);
+      this.player.updateIndicators(this.elapsed);
+      this.player.updateTelemetry?.(Math.round(this.speed * 3.6), this.rpm, this.gear);
+      return;
+    }
+
     const speedT = Math.min(1, this.speed / 85);
     const cameraDistance = 9.2 * this.settings.gameplay.cameraDistance + speedT * 1.3;
     const height = 4.55 + speedT * 0.55 + (this.boosting ? 0.1 : 0);
@@ -835,6 +899,9 @@ export class HighwayRushEngine {
       this.camera.fov = damp(this.camera.fov, nextFov, 4, dt);
       this.camera.updateProjectionMatrix();
     }
+
+    this.player.setSteeringWheelRotation(-this.steerVisual * 1.8);
+    this.player.updateIndicators(this.elapsed);
   }
 
   private updateGame(dt: number): void {
@@ -845,6 +912,19 @@ export class HighwayRushEngine {
     this.wallCooldown = Math.max(0, this.wallCooldown - dt);
     this.nitroCueCooldown = Math.max(0, this.nitroCueCooldown - dt);
     this.blinkTimer += dt;
+
+    if (input.switchCamera && !this.previousSwitchCamPressed) {
+      this.toggleCamera();
+    }
+    this.previousSwitchCamPressed = input.switchCamera;
+
+    if (input.horn && !this.wasHonking) {
+      this.audio.startHorn();
+      this.wasHonking = true;
+    } else if (!input.horn && this.wasHonking) {
+      this.audio.stopHorn();
+      this.wasHonking = false;
+    }
 
     const stats = effectiveCarStats(this.options.car, this.options.customization);
     const maxSpeedMps = (210 + stats.speed * 1.18) / 3.6;
@@ -1044,34 +1124,138 @@ export class HighwayRushEngine {
     for (const unit of this.traffic) {
       if (!unit.active) continue;
       const group = unit.model.group;
-      unit.changeTimer -= dt;
-      if (unit.changeTimer <= 0) {
-        unit.changeTimer = 2.4 + Math.random() * 4.5;
-        if (Math.random() < 0.35) {
-          const nextLane = Math.max(0, Math.min(LANES.length - 1, unit.lane + (Math.random() > 0.5 ? 1 : -1)));
-          if (nextLane !== unit.lane) {
-            const blocked = this.traffic.some(
-              (other) =>
-                other !== unit &&
-                other.active &&
-                other.lane === nextLane &&
-                Math.abs(other.model.group.position.z - group.position.z) < 12,
-            );
-            if (!blocked) {
-              unit.lane = nextLane;
-              unit.targetX = LANES[nextLane];
+
+      // Update indicator blinking animations for AI car
+      unit.model.updateIndicators(this.elapsed);
+
+      // Safe following distance and braking logic for cars ahead in the same lane
+      const carAhead = this.traffic.find(
+        (other) =>
+          other !== unit &&
+          other.active &&
+          other.lane === unit.lane &&
+          other.model.group.position.z < group.position.z &&
+          group.position.z - other.model.group.position.z < 22,
+      );
+      let isBraking = false;
+      if (carAhead) {
+        unit.speedMps = damp(unit.speedMps, Math.min(unit.speedMps, carAhead.speedMps * 0.94), 2.2, dt);
+        isBraking = true;
+      }
+
+      // React to player horn (yield to open lane or accelerate)
+      if (this.wasHonking && group.position.z < -2 && group.position.z > -42) {
+        const distFromPlayerLane = Math.abs(group.position.x - this.playerX);
+        if (distFromPlayerLane < 2.4) {
+          if (unit.laneChangeState === 'idle') {
+            const canGoLeft = unit.lane > 0;
+            const canGoRight = unit.lane < LANES.length - 1;
+            const tryLanes = canGoRight && canGoLeft
+              ? (Math.random() > 0.5 ? [unit.lane + 1, unit.lane - 1] : [unit.lane - 1, unit.lane + 1])
+              : canGoRight ? [unit.lane + 1] : canGoLeft ? [unit.lane - 1] : [];
+            for (const targetLane of tryLanes) {
+              const blocked = this.traffic.some(
+                (other) =>
+                  other !== unit &&
+                  other.active &&
+                  other.lane === targetLane &&
+                  Math.abs(other.model.group.position.z - group.position.z) < 14,
+              );
+              if (!blocked) {
+                unit.intendedLane = targetLane;
+                unit.laneChangeState = 'signaling';
+                unit.signalingTimer = 0.45;
+                unit.indicatorState = targetLane > unit.lane ? 'right' : 'left';
+                unit.model.setIndicatorState(unit.indicatorState);
+                break;
+              }
+            }
+            if (unit.laneChangeState === 'idle') {
+              unit.speedMps = Math.min(unit.speedMps + 12 * dt, 42);
             }
           }
         }
       }
-      unit.targetX = damp(unit.targetX, LANES[unit.lane], 2.5, dt);
-      group.position.x = damp(group.position.x, unit.targetX + Math.sin((unit.wobble += dt) * 0.7) * 0.04, 4, dt);
+
+      // Natural Lane Change State Machine
+      if (unit.laneChangeState === 'idle') {
+        unit.changeTimer -= dt;
+        if (unit.changeTimer <= 0) {
+          unit.changeTimer = 3.6 + Math.random() * 5.0;
+          if (Math.random() < 0.4) {
+            const canGoLeft = unit.lane > 0;
+            const canGoRight = unit.lane < LANES.length - 1;
+            const dir = canGoLeft && canGoRight ? (Math.random() > 0.5 ? 1 : -1) : canGoRight ? 1 : -1;
+            const nextLane = unit.lane + dir;
+
+            const trafficBlocked = this.traffic.some(
+              (other) =>
+                other !== unit &&
+                other.active &&
+                other.lane === nextLane &&
+                Math.abs(other.model.group.position.z - group.position.z) < 16,
+            );
+
+            // Never cut off player if closing in fast
+            const playerLaneTarget = Math.abs(LANES[nextLane] - this.playerX) < 2.0;
+            const playerBehind = group.position.z > -35 && group.position.z < 8;
+            const playerClosingFast = this.speed > unit.speedMps + 10;
+            const playerBlocked = playerLaneTarget && playerBehind && playerClosingFast;
+
+            if (!trafficBlocked && !playerBlocked) {
+              unit.intendedLane = nextLane;
+              unit.laneChangeState = 'signaling';
+              unit.signalingTimer = 1.2 + Math.random() * 0.4;
+              unit.indicatorState = nextLane > unit.lane ? 'right' : 'left';
+              unit.model.setIndicatorState(unit.indicatorState);
+            }
+          }
+        }
+      } else if (unit.laneChangeState === 'signaling') {
+        unit.signalingTimer -= dt;
+        const trafficBlocked = this.traffic.some(
+          (other) =>
+            other !== unit &&
+            other.active &&
+            other.lane === unit.intendedLane &&
+            Math.abs(other.model.group.position.z - group.position.z) < 13,
+        );
+        const playerLaneTarget = Math.abs(LANES[unit.intendedLane] - this.playerX) < 2.0;
+        const playerBehind = group.position.z > -30 && group.position.z < 6;
+        const playerClosingFast = this.speed > unit.speedMps + 12;
+        const playerBlocked = playerLaneTarget && playerBehind && playerClosingFast;
+
+        if (trafficBlocked || playerBlocked) {
+          unit.laneChangeState = 'idle';
+          unit.indicatorState = 'none';
+          unit.model.setIndicatorState('none');
+          unit.changeTimer = 2.5 + Math.random() * 2.5;
+        } else if (unit.signalingTimer <= 0) {
+          unit.laneChangeState = 'changing';
+          unit.lane = unit.intendedLane;
+          unit.targetX = LANES[unit.intendedLane];
+        }
+      } else if (unit.laneChangeState === 'changing') {
+        const dxLane = LANES[unit.lane] - group.position.x;
+        group.rotation.z = damp(group.rotation.z, -dxLane * 0.06, 6, dt);
+
+        if (Math.abs(dxLane) < 0.1) {
+          unit.laneChangeState = 'idle';
+          unit.indicatorState = 'none';
+          unit.model.setIndicatorState('none');
+          group.rotation.z = 0;
+          unit.changeTimer = 4.0 + Math.random() * 5.0;
+        }
+      }
+
+      unit.targetX = damp(unit.targetX, LANES[unit.lane], 2.8, dt);
+      group.position.x = damp(group.position.x, unit.targetX + Math.sin((unit.wobble += dt) * 0.7) * 0.04, 3.8, dt);
       const relativeSpeed = this.speed - unit.speedMps;
       group.position.z += relativeSpeed * dt;
 
       unit.spin -= unit.speedMps * dt * 2.3;
       unit.model.setWheelSpin(unit.spin);
-      unit.model.setBrake(relativeSpeed < -2);
+      unit.model.setBrake(isBraking || relativeSpeed < -2);
 
       const dx = Math.abs(group.position.x - this.playerX);
       const dz = Math.abs(group.position.z - playerZ);
@@ -1430,12 +1614,26 @@ export class HighwayRushEngine {
     this.completeRun('quit');
   }
 
-  setVirtualControl(action: 'steerLeft' | 'steerRight' | 'accelerate' | 'brake' | 'nitro', active: boolean): void {
+  setVirtualControl(
+    action: 'steerLeft' | 'steerRight' | 'accelerate' | 'brake' | 'nitro' | 'horn' | 'switchCamera',
+    active: boolean,
+  ): void {
     if (this.mode !== 'running' && this.mode !== 'countdown') {
       if (!active) this.input.setVirtual(action, false);
       return;
     }
     this.input.setVirtual(action, active);
+  }
+
+  toggleCamera(): CameraView {
+    this.cameraMode = this.cameraMode === 'exterior' ? 'cockpit' : 'exterior';
+    this.player.setCockpitVisibility(this.cameraMode === 'cockpit');
+    this.emitHud(true);
+    return this.cameraMode;
+  }
+
+  getCameraMode(): CameraView {
+    return this.cameraMode;
   }
 
   /**
@@ -1516,6 +1714,7 @@ export class HighwayRushEngine {
       traffic,
       drifting: this.drifting,
       boosting: this.boosting,
+      cameraView: this.cameraMode,
       bestScore: this.options.bestScore,
     };
     if (force) {
@@ -1539,6 +1738,10 @@ export class HighwayRushEngine {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    if (this.wasHonking) {
+      this.audio.stopHorn();
+      this.wasHonking = false;
+    }
     if (this.finishTimer !== null) {
       window.clearTimeout(this.finishTimer);
       this.finishTimer = null;

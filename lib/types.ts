@@ -15,7 +15,11 @@ export type ControlAction =
   | 'accelerate'
   | 'brake'
   | 'nitro'
-  | 'pause';
+  | 'pause'
+  | 'horn'
+  | 'switchCamera';
+
+export type CameraView = 'exterior' | 'cockpit';
 
 export interface Settings {
   graphics: {
@@ -319,6 +323,7 @@ export interface HudFrame {
   traffic: HudTraffic[];
   drifting: boolean;
   boosting: boolean;
+  cameraView: CameraView;
   bestScore: number;
 }
 
@@ -355,6 +360,7 @@ export type AudioCue =
   | 'crash'
   | 'shift'
   | 'nitro'
+  | 'horn'
   | 'purchase'
   | 'trophy'
   | 'countdown'

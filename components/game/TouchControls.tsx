@@ -2,10 +2,17 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import styled, { css } from 'styled-components';
-import { ChevronLeft, ChevronRight, ChevronsDown, ChevronsUp, Smartphone, Zap } from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight, ChevronsDown, ChevronsUp, Smartphone, Volume2, Zap } from 'lucide-react';
 import { media } from '@/lib/ui/theme';
 
-type VirtualAction = 'steerLeft' | 'steerRight' | 'accelerate' | 'brake' | 'nitro';
+type VirtualAction =
+  | 'steerLeft'
+  | 'steerRight'
+  | 'accelerate'
+  | 'brake'
+  | 'nitro'
+  | 'horn'
+  | 'switchCamera';
 
 interface TouchControlsProps {
   onControl: (action: VirtualAction, active: boolean) => void;
@@ -50,6 +57,13 @@ const Stack = styled.div`
   pointer-events: none;
 `;
 
+const UtilityCluster = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+`;
+
 const SteeringHint = styled.div`
   display: flex;
   align-items: center;
@@ -76,7 +90,7 @@ const SteeringHint = styled.div`
 
 const Key = styled.button<{
   $size: 'sm' | 'md' | 'lg';
-  $tone: 'steer' | 'nitro' | 'brake' | 'throttle';
+  $tone: 'steer' | 'nitro' | 'brake' | 'throttle' | 'horn' | 'cam';
   $pressed: boolean;
 }>`
   position: relative;
@@ -164,6 +178,18 @@ const Key = styled.button<{
       border-color: rgba(255, 93, 93, 0.32);
       color: var(--danger);
     `}
+  ${({ $tone }) =>
+    $tone === 'horn' &&
+    css`
+      border-color: rgba(245, 158, 11, 0.45);
+      color: #fbbf24;
+    `}
+  ${({ $tone }) =>
+    $tone === 'cam' &&
+    css`
+      border-color: rgba(147, 197, 253, 0.45);
+      color: #93c5fd;
+    `}
 
   ${({ $pressed, $tone }) =>
     $pressed &&
@@ -175,14 +201,22 @@ const Key = styled.button<{
           ? 'rgba(56, 189, 248, 0.24)'
           : $tone === 'brake'
             ? 'rgba(255, 93, 93, 0.22)'
-            : 'rgba(255, 255, 255, 0.16)'};
+            : $tone === 'horn'
+              ? 'rgba(245, 158, 11, 0.28)'
+              : $tone === 'cam'
+                ? 'rgba(147, 197, 253, 0.28)'
+                : 'rgba(255, 255, 255, 0.16)'};
       border-color: ${$tone === 'throttle'
         ? 'var(--lime)'
         : $tone === 'nitro'
           ? 'var(--info)'
           : $tone === 'brake'
             ? 'var(--danger)'
-            : 'rgba(255, 255, 255, 0.5)'};
+            : $tone === 'horn'
+              ? '#fbbf24'
+              : $tone === 'cam'
+                ? '#93c5fd'
+                : 'rgba(255, 255, 255, 0.5)'};
     `}
 
   ${media.mobile} {
@@ -240,7 +274,7 @@ function HoldKey({
   label: string;
   icon: ReactNode;
   size?: 'sm' | 'md' | 'lg';
-  tone?: 'steer' | 'nitro' | 'brake' | 'throttle';
+  tone?: 'steer' | 'nitro' | 'brake' | 'throttle' | 'horn' | 'cam';
   onControl: (action: VirtualAction, active: boolean) => void;
 }) {
   const [pressed, setPressed] = useState(false);
@@ -310,28 +344,48 @@ export function TouchControls({
 }: TouchControlsProps) {
   return (
     <Root $active={active} aria-hidden={!active}>
-      {showSteering ? (
-        <Cluster>
+      <Cluster>
+        <UtilityCluster>
           <HoldKey
-            action="steerLeft"
-            label="Left"
-            icon={<ChevronLeft />}
-            size="lg"
+            action="switchCamera"
+            label="Cam"
+            icon={<Camera />}
+            size="sm"
+            tone="cam"
             onControl={onControl}
           />
           <HoldKey
-            action="steerRight"
-            label="Right"
-            icon={<ChevronRight />}
-            size="lg"
+            action="horn"
+            label="Horn"
+            icon={<Volume2 />}
+            size="sm"
+            tone="horn"
             onControl={onControl}
           />
-        </Cluster>
-      ) : (
-        <SteeringHint>
-          <Smartphone /> {steeringLabel ?? 'Tilt to steer'}
-        </SteeringHint>
-      )}
+        </UtilityCluster>
+        {showSteering ? (
+          <>
+            <HoldKey
+              action="steerLeft"
+              label="Left"
+              icon={<ChevronLeft />}
+              size="lg"
+              onControl={onControl}
+            />
+            <HoldKey
+              action="steerRight"
+              label="Right"
+              icon={<ChevronRight />}
+              size="lg"
+              onControl={onControl}
+            />
+          </>
+        ) : (
+          <SteeringHint>
+            <Smartphone /> {steeringLabel ?? 'Tilt to steer'}
+          </SteeringHint>
+        )}
+      </Cluster>
       <Cluster>
         <Stack>
           <HoldKey

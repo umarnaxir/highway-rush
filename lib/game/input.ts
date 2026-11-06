@@ -5,10 +5,21 @@ export interface InputState {
   throttle: number;
   brake: number;
   nitro: boolean;
+  horn: boolean;
+  switchCamera: boolean;
   gamepad: boolean;
 }
 
-const GAME_KEYS: ControlAction[] = ['steerLeft', 'steerRight', 'accelerate', 'brake', 'nitro', 'pause'];
+const GAME_KEYS: ControlAction[] = [
+  'steerLeft',
+  'steerRight',
+  'accelerate',
+  'brake',
+  'nitro',
+  'pause',
+  'horn',
+  'switchCamera',
+];
 
 export class InputController {
   private bindings: Record<ControlAction, string>;
@@ -20,6 +31,8 @@ export class InputController {
     brake: false,
     nitro: false,
     pause: false,
+    horn: false,
+    switchCamera: false,
   };
   private gamepadNitro = false;
   private lastGamepadPause = false;
@@ -114,6 +127,8 @@ export class InputController {
     this.virtual.accelerate = false;
     this.virtual.brake = false;
     this.virtual.nitro = false;
+    this.virtual.horn = false;
+    this.virtual.switchCamera = false;
     this.gamepadNitro = false;
     this.analogSteer = 0;
   }
@@ -124,7 +139,15 @@ export class InputController {
 
   getState(): InputState {
     if (this.disposed) {
-      return { steer: 0, throttle: 0, brake: 0, nitro: false, gamepad: false };
+      return {
+        steer: 0,
+        throttle: 0,
+        brake: 0,
+        nitro: false,
+        horn: false,
+        switchCamera: false,
+        gamepad: false,
+      };
     }
     let steerAxis = 0;
     let gameThrottle = 0;
@@ -157,21 +180,29 @@ export class InputController {
     if (pausePressed && !this.lastGamepadPause) this.onPause();
     this.lastGamepadPause = pausePressed;
 
-    const left = this.namedDown('steerLeft');
-    const right = this.namedDown('steerRight');
+    const left = this.namedDown('steerLeft') || this.down.has('KeyA');
+    const right = this.namedDown('steerRight') || this.down.has('KeyD');
     let steer = (right ? 1 : 0) - (left ? 1 : 0);
     if (Math.abs(steerAxis) > Math.abs(steer)) steer = steerAxis;
     if (Math.abs(this.analogSteer) > Math.abs(steer)) steer = this.analogSteer;
     const throttle = Math.max(
-      this.namedDown('accelerate') ? 1 : 0,
+      this.namedDown('accelerate') || this.down.has('KeyW') ? 1 : 0,
       gamepad ? gameThrottle : 0,
     );
-    const brake = Math.max(this.namedDown('brake') ? 1 : 0, gamepad ? gameBrake : 0);
+    const brake = Math.max(
+      this.namedDown('brake') || this.down.has('KeyS') ? 1 : 0,
+      gamepad ? gameBrake : 0,
+    );
+    const horn = this.namedDown('horn') || this.down.has('KeyH') || this.down.has('KeyF');
+    const switchCamera = this.namedDown('switchCamera') || this.down.has('KeyC');
+
     return {
       steer,
       throttle,
       brake,
       nitro: this.namedDown('nitro') || this.gamepadNitro,
+      horn,
+      switchCamera,
       gamepad,
     };
   }

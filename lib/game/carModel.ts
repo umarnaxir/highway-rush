@@ -8,7 +8,9 @@ import type {
   SpoilerStyle,
   WheelStyle,
 } from '@/lib/types';
-import { disposeObject3D } from './dispose';
+import { disposeObject3D, makeCanvasTexture } from './dispose';
+
+export type IndicatorState = 'none' | 'left' | 'right' | 'hazard';
 
 export interface CarVisualOptions {
   paint: string;
@@ -34,6 +36,13 @@ export interface CarModel {
   setBrake: (active: boolean) => void;
   setWheelSpin: (radians: number) => void;
   dispose: () => void;
+  cockpitGroup: THREE.Group;
+  cockpitEyePosition: THREE.Vector3;
+  setSteeringWheelRotation: (radians: number) => void;
+  setIndicatorState: (state: IndicatorState) => void;
+  updateIndicators: (elapsed: number) => void;
+  setCockpitVisibility: (visible: boolean) => void;
+  updateTelemetry?: (speedKph: number, rpm: number, gear: number) => void;
 }
 
 interface BodyDimensions {
@@ -302,6 +311,34 @@ export function createCarModel(options: CarVisualOptions): CarModel {
     group.add(accentStrip);
   }
 
+  // Turn Indicators: Front & Rear amber blinkers
+  const leftIndicatorMat = new THREE.MeshStandardMaterial({
+    color: '#ff9d00',
+    emissive: '#ff8800',
+    emissiveIntensity: 0,
+    roughness: 0.3,
+  });
+  const rightIndicatorMat = new THREE.MeshStandardMaterial({
+    color: '#ff9d00',
+    emissive: '#ff8800',
+    emissiveIntensity: 0,
+    roughness: 0.3,
+  });
+
+  const frontLeftIndicator = new THREE.Mesh(
+    new THREE.BoxGeometry(width * 0.08, 0.08, 0.06),
+    leftIndicatorMat,
+  );
+  frontLeftIndicator.position.set(-width * 0.44, 0.83, -length / 2 - 0.016);
+  group.add(frontLeftIndicator);
+
+  const frontRightIndicator = new THREE.Mesh(
+    new THREE.BoxGeometry(width * 0.08, 0.08, 0.06),
+    rightIndicatorMat,
+  );
+  frontRightIndicator.position.set(width * 0.44, 0.83, -length / 2 - 0.016);
+  group.add(frontRightIndicator);
+
   const brakeMat = new THREE.MeshStandardMaterial({
     color: '#ff2233',
     emissive: '#ff1f35',
@@ -317,6 +354,247 @@ export function createCarModel(options: CarVisualOptions): CarModel {
     tailPod.position.set(side * width * 0.32, 0.93, length / 2 + 0.02);
     group.add(tailPod);
   }
+
+  const rearLeftIndicator = new THREE.Mesh(
+    new THREE.BoxGeometry(width * 0.08, 0.12, 0.06),
+    leftIndicatorMat,
+  );
+  rearLeftIndicator.position.set(-width * 0.44, 0.93, length / 2 + 0.022);
+  group.add(rearLeftIndicator);
+
+  const rearRightIndicator = new THREE.Mesh(
+    new THREE.BoxGeometry(width * 0.08, 0.12, 0.06),
+    rightIndicatorMat,
+  );
+  rearRightIndicator.position.set(width * 0.44, 0.93, length / 2 + 0.022);
+  group.add(rearRightIndicator);
+
+  // Cockpit Interior Group
+  const cockpitGroup = new THREE.Group();
+  cockpitGroup.name = 'cockpit';
+  const cockpitEyePosition = new THREE.Vector3(-0.28, 1.34, 0.14);
+
+  const dashMat = standardMaterial('#0c0f14', { roughness: 0.9, metalness: 0.1 });
+  const darkTrimMat = standardMaterial('#141820', { roughness: 0.7, metalness: 0.2 });
+
+  // Interior floor tub so road/grass doesn't show through the cabin bottom
+  const floorTub = new THREE.Mesh(new THREE.BoxGeometry(width * 0.86, 0.05, 1.5), dashMat);
+  floorTub.position.set(0, 0.44, -0.2);
+  cockpitGroup.add(floorTub);
+
+  // Front firewall bulkhead closing off engine bay under dashboard
+  const firewall = new THREE.Mesh(new THREE.BoxGeometry(width * 0.86, 0.58, 0.05), dashMat);
+  firewall.position.set(0, 0.68, -0.92);
+  cockpitGroup.add(firewall);
+
+  // Left & right inner door cards
+  for (const side of [-1, 1]) {
+    const doorCard = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.42, 1.2), darkTrimMat);
+    doorCard.position.set(side * (width * 0.41), 0.72, -0.2);
+    cockpitGroup.add(doorCard);
+  }
+
+  // Dashboard top shelf - sits forward at base of windshield, sloped so it doesn't obstruct view
+  const dash = new THREE.Mesh(
+    new RoundedBoxGeometry(width * 0.84, 0.22, 0.62, 3, 0.04),
+    dashMat,
+  );
+  dash.position.set(0, 0.84, -0.62);
+  cockpitGroup.add(dash);
+
+  // Driver instrument binnacle cowl
+  const cowl = new THREE.Mesh(
+    new RoundedBoxGeometry(0.32, 0.09, 0.24, 3, 0.03),
+    darkTrimMat,
+  );
+  cowl.position.set(-0.28, 0.96, -0.56);
+  cockpitGroup.add(cowl);
+
+  // Digital instrument cluster screen with dynamic live canvas telemetry
+  let clusterCtx: CanvasRenderingContext2D | null = null;
+  let clusterCanvas: HTMLCanvasElement | null = null;
+  let clusterTexture: THREE.CanvasTexture | null = null;
+
+  if (typeof document !== 'undefined') {
+    clusterCanvas = document.createElement('canvas');
+    clusterCanvas.width = 256;
+    clusterCanvas.height = 128;
+    clusterCtx = clusterCanvas.getContext('2d');
+    if (clusterCtx) {
+      clusterTexture = new THREE.CanvasTexture(clusterCanvas);
+      clusterTexture.minFilter = THREE.LinearFilter;
+      clusterTexture.magFilter = THREE.LinearFilter;
+    }
+  }
+
+  const updateTelemetry = (speedKph: number, rpm: number, gear: number) => {
+    if (!clusterCtx || !clusterCanvas || !clusterTexture) return;
+    const ctx = clusterCtx;
+    ctx.fillStyle = '#060a0f';
+    ctx.fillRect(0, 0, 256, 128);
+
+    // Outer cyber border
+    ctx.strokeStyle = '#d7ff3f';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(6, 6, 244, 116);
+
+    // Digital speed readout
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 46px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${speedKph}`, 164, 68);
+
+    ctx.fillStyle = '#d7ff3f';
+    ctx.font = '800 15px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('KM/H', 170, 62);
+
+    // Gear indicator box
+    ctx.fillStyle = '#111720';
+    ctx.fillRect(16, 24, 48, 52);
+    ctx.strokeStyle = '#00f0ff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(16, 24, 48, 52);
+    ctx.fillStyle = '#00f0ff';
+    ctx.font = '900 30px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${gear}`, 40, 62);
+    ctx.font = '800 10px monospace';
+    ctx.fillText('GEAR', 40, 36);
+
+    // Dynamic RPM bar
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.fillRect(16, 88, 224, 14);
+    const rpmWidth = Math.min(224, Math.max(0, rpm * 224));
+    const grad = ctx.createLinearGradient(16, 0, 240, 0);
+    grad.addColorStop(0, '#00f0ff');
+    grad.addColorStop(0.7, '#d7ff3f');
+    grad.addColorStop(1, '#ff3b30');
+    ctx.fillStyle = grad;
+    ctx.fillRect(16, 88, rpmWidth, 14);
+
+    // Header label
+    ctx.fillStyle = '#a1a1aa';
+    ctx.font = '800 11px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('RUSH TELEMETRY', 74, 24);
+
+    clusterTexture.needsUpdate = true;
+  };
+
+  updateTelemetry(0, 0.15, 1);
+
+  const clusterMat = clusterTexture
+    ? new THREE.MeshBasicMaterial({ map: clusterTexture })
+    : standardMaterial('#080d14', { emissive: '#d7ff3f', emissiveIntensity: 0.4 });
+  const clusterScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.09), clusterMat);
+  clusterScreen.position.set(-0.28, 0.94, -0.44);
+  cockpitGroup.add(clusterScreen);
+
+  // Center console / transmission tunnel
+  const centerConsole = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.3, 0.65), dashMat);
+  centerConsole.position.set(0.06, 0.65, -0.28);
+  cockpitGroup.add(centerConsole);
+
+  // Sport steering wheel - positioned naturally in driver's hands in lower third of view
+  const steeringWheel = new THREE.Group();
+  steeringWheel.position.set(-0.28, 0.92, -0.32);
+  steeringWheel.rotation.x = -0.26;
+
+  const wheelRimMat = standardMaterial('#14181f', { roughness: 0.85, metalness: 0.1 });
+  const wheelRim = new THREE.Mesh(new THREE.TorusGeometry(0.145, 0.02, 10, 24), wheelRimMat);
+  steeringWheel.add(wheelRim);
+
+  const centerStripeMat = new THREE.MeshStandardMaterial({
+    color: '#d7ff3f',
+    emissive: '#d7ff3f',
+    emissiveIntensity: 2.2,
+  });
+  const centerStripe = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.024, 0.038), centerStripeMat);
+  centerStripe.position.set(0, 0.145, 0);
+  steeringWheel.add(centerStripe);
+
+  const hubMat = standardMaterial('#1f242d', { metalness: 0.8, roughness: 0.25 });
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.028, 14), hubMat);
+  hub.rotation.x = Math.PI / 2;
+  steeringWheel.add(hub);
+
+  const spokeMat = standardMaterial('#2c3442', { metalness: 0.7, roughness: 0.3 });
+  const leftSpoke = new THREE.Mesh(new THREE.BoxGeometry(0.105, 0.022, 0.016), spokeMat);
+  leftSpoke.position.set(-0.065, 0, 0);
+  steeringWheel.add(leftSpoke);
+
+  const rightSpoke = new THREE.Mesh(new THREE.BoxGeometry(0.105, 0.022, 0.016), spokeMat);
+  rightSpoke.position.set(0.065, 0, 0);
+  steeringWheel.add(rightSpoke);
+
+  const bottomSpoke = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.105, 0.016), spokeMat);
+  bottomSpoke.position.set(0, -0.065, 0);
+  steeringWheel.add(bottomSpoke);
+
+  cockpitGroup.add(steeringWheel);
+
+  // Rearview mirror mounted at top of windshield
+  const mirrorStem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.08, 6), trimMaterial);
+  mirrorStem.position.set(0, 1.52, -0.15);
+  cockpitGroup.add(mirrorStem);
+
+  const mirrorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.07, 0.025), trimMaterial);
+  mirrorFrame.position.set(0, 1.48, -0.15);
+  mirrorFrame.rotation.y = 0.08;
+  cockpitGroup.add(mirrorFrame);
+
+  const mirrorGlass = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.22, 0.055),
+    standardMaterial('#98b4c8', { metalness: 0.95, roughness: 0.05 }),
+  );
+  mirrorGlass.position.set(0, 1.48, -0.135);
+  mirrorGlass.rotation.y = 0.08;
+  cockpitGroup.add(mirrorGlass);
+
+  // Left & right side mirrors angled toward driver
+  const leftMirror = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.12, 0.22), darkTrimMat);
+  leftMirror.position.set(-width * 0.46, 1.14, -0.42);
+  const leftMirrorGlass = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.2, 0.1),
+    standardMaterial('#7dd3fc', { metalness: 0.96, roughness: 0.05 }),
+  );
+  leftMirrorGlass.rotation.y = Math.PI / 2 + 0.32;
+  leftMirrorGlass.position.set(-width * 0.44, 1.14, -0.42);
+  cockpitGroup.add(leftMirror);
+  cockpitGroup.add(leftMirrorGlass);
+
+  const rightMirror = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.12, 0.22), darkTrimMat);
+  rightMirror.position.set(width * 0.46, 1.14, -0.42);
+  const rightMirrorGlass = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.2, 0.1),
+    standardMaterial('#7dd3fc', { metalness: 0.96, roughness: 0.05 }),
+  );
+  rightMirrorGlass.rotation.y = -Math.PI / 2 - 0.32;
+  rightMirrorGlass.position.set(width * 0.44, 1.14, -0.42);
+  cockpitGroup.add(rightMirror);
+  cockpitGroup.add(rightMirrorGlass);
+
+  // A-Pillars for framing windshield (placed wide at cabin edge so they never block the center road)
+  const pillarMat = standardMaterial('#0f131a', { roughness: 0.7, metalness: 0.2 });
+  for (const side of [-1, 1]) {
+    const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.46, 0.05), pillarMat);
+    pillar.position.set(side * width * 0.40, 1.34, -0.22);
+    pillar.rotation.z = -side * 0.22;
+    pillar.rotation.x = -0.42;
+    cockpitGroup.add(pillar);
+  }
+
+  // Streamlined cockpit bonnet in car paint, sloping forward gently into the road
+  const cockpitHood = new THREE.Mesh(
+    new RoundedBoxGeometry(width * 0.86, 0.12, length * 0.28, 4, 0.04),
+    bodyMaterial,
+  );
+  cockpitHood.position.set(0, 0.80, -length * 0.32);
+  cockpitHood.visible = false;
+  group.add(cockpitHood);
+
+  group.add(cockpitGroup);
 
   // Exhaust tips.
   const exhaustPositions: Array<{ x: number; y: number; z: number }> = [];
@@ -441,7 +719,59 @@ export function createCarModel(options: CarVisualOptions): CarModel {
     });
   };
 
+  let indicatorState: IndicatorState = 'none';
+
+  const setIndicatorState = (state: IndicatorState) => {
+    indicatorState = state;
+    if (state === 'none') {
+      leftIndicatorMat.emissiveIntensity = 0;
+      rightIndicatorMat.emissiveIntensity = 0;
+    }
+  };
+
+  const updateIndicators = (elapsed: number) => {
+    if (indicatorState === 'none') {
+      leftIndicatorMat.emissiveIntensity = 0;
+      rightIndicatorMat.emissiveIntensity = 0;
+      return;
+    }
+    const isBlinkOn = (Math.floor(elapsed * 5) % 2) === 0;
+    const intensity = isBlinkOn ? 3.8 : 0;
+    if (indicatorState === 'left') {
+      leftIndicatorMat.emissiveIntensity = intensity;
+      rightIndicatorMat.emissiveIntensity = 0;
+    } else if (indicatorState === 'right') {
+      rightIndicatorMat.emissiveIntensity = intensity;
+      leftIndicatorMat.emissiveIntensity = 0;
+    } else if (indicatorState === 'hazard') {
+      leftIndicatorMat.emissiveIntensity = intensity;
+      rightIndicatorMat.emissiveIntensity = intensity;
+    }
+  };
+
+  const setSteeringWheelRotation = (radians: number) => {
+    steeringWheel.rotation.z = radians;
+  };
+
+  const setCockpitVisibility = (visible: boolean) => {
+    cockpitGroup.visible = true;
+    if (visible) {
+      roof.visible = false;
+      cabin.visible = false;
+      body.visible = false;
+      hood.visible = false;
+      cockpitHood.visible = true;
+    } else {
+      roof.visible = true;
+      cabin.visible = true;
+      body.visible = true;
+      hood.visible = true;
+      cockpitHood.visible = false;
+    }
+  };
+
   const dispose = () => {
+    clusterTexture?.dispose();
     disposeObject3D(group);
   };
 
@@ -457,5 +787,12 @@ export function createCarModel(options: CarVisualOptions): CarModel {
     setBrake,
     setWheelSpin,
     dispose,
+    cockpitGroup,
+    cockpitEyePosition,
+    setSteeringWheelRotation,
+    setIndicatorState,
+    updateIndicators,
+    setCockpitVisibility,
+    updateTelemetry,
   };
 }

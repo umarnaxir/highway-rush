@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import styled, { keyframes } from 'styled-components';
+import styled from 'styled-components';
 import {
   ArrowLeft,
+  Check,
   ChevronLeft,
   ChevronRight,
   Coins,
@@ -13,7 +14,6 @@ import {
   Lock,
   Play,
   Sparkles,
-  Trophy,
   Unlock,
 } from 'lucide-react';
 import { PreviewCanvas } from '@/components/game/PreviewCanvas';
@@ -24,6 +24,26 @@ import { getAudioManager } from '@/lib/audio/AudioManager';
 import { useUiStore } from '@/lib/store/useUiStore';
 import { formatDistance, formatNumber } from '@/lib/ui/format';
 import { media } from '@/lib/ui/theme';
+import {
+  GameSidebarRoot,
+  MobileDragHandle,
+  SidebarScroll,
+  SidebarFooter,
+  SidebarKicker,
+  SidebarTitle,
+  SidebarSubtitle,
+  SidebarBadgeRow,
+  SidebarBadge,
+  SidebarMetricGrid,
+  SidebarMetricCard,
+  SidebarPrimaryBtn,
+  SidebarNotice,
+  SidebarHeaderRow,
+  QuickCycleGroup,
+  SidebarSection,
+  RosterList,
+  RosterItem,
+} from '@/components/ui/GameSidebar';
 
 const Stage = styled.div`
   position: relative;
@@ -60,10 +80,8 @@ const Overlay = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-    max(14px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  padding: max(14px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
 `;
 
 const TopNav = styled.header`
@@ -73,6 +91,11 @@ const TopNav = styled.header`
   gap: 16px;
   pointer-events: auto;
   width: 100%;
+  max-width: calc(100% - clamp(340px, 24vw, 390px) - 24px);
+
+  ${media.mobile} {
+    max-width: 100%;
+  }
 `;
 
 const BackPill = styled(Link)`
@@ -141,6 +164,15 @@ const HeaderStats = styled.div`
     letter-spacing: 0.1em;
     text-transform: uppercase;
 
+    &.currency {
+      color: var(--warning);
+      border-color: rgba(251, 191, 36, 0.35);
+      font-family: ${({ theme }) => theme.fonts.mono};
+      svg {
+        color: var(--warning);
+      }
+    }
+
     svg {
       color: var(--warning);
       width: 13px;
@@ -149,277 +181,9 @@ const HeaderStats = styled.div`
   }
 `;
 
-/* CENTERED HERO SECTION */
-const CenterHero = styled.div`
-  pointer-events: auto;
-  margin: auto auto 14px auto;
-  max-width: 880px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 12px;
-  padding: 0 12px;
-`;
-
-const KickerBadge = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(215, 255, 63, 0.35);
-  background: rgba(215, 255, 63, 0.08);
-  color: var(--lime);
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-  backdrop-filter: blur(8px);
-`;
-
-const HeroTitle = styled.h1`
-  font-family: ${({ theme }) => theme.fonts.display};
-  font-size: clamp(34px, 5.2vw, 68px);
-  font-style: italic;
-  font-weight: 900;
-  line-height: 0.88;
-  letter-spacing: -0.04em;
-  text-transform: uppercase;
-  text-shadow: 0 6px 36px rgba(0, 0, 0, 0.9);
-  margin: 0;
-
-  em {
-    color: var(--lime);
-    font-style: inherit;
-    margin-left: 6px;
-  }
-`;
-
-const HeroTagline = styled.p`
-  max-width: 580px;
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-style: italic;
-  line-height: 1.5;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
-
-  ${media.mobile} {
-    display: none;
-  }
-`;
-
-const BadgesStrip = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 2px;
-`;
-
-const MetricBadge = styled.div<{ $tone?: string }>`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 4px;
-  border: 1px solid ${({ $tone }) => ($tone ? $tone : 'var(--line-strong)')};
-  background: rgba(10, 14, 18, 0.82);
-  backdrop-filter: blur(10px);
-  color: ${({ $tone }) => ($tone ? $tone : 'var(--text)')};
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-
-  b {
-    color: var(--text);
-    font-family: ${({ theme }) => theme.fonts.mono};
-  }
-`;
-
-const pulseGlow = keyframes`
-  0%, 100% { box-shadow: 0 0 24px rgba(215, 255, 63, 0.4), 0 0 50px rgba(215, 255, 63, 0.15); }
-  50% { box-shadow: 0 0 38px rgba(215, 255, 63, 0.65), 0 0 75px rgba(215, 255, 63, 0.3); }
-`;
-
-const MainActionBtn = styled.button<{ $locked?: boolean }>`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-width: 280px;
-  padding: 16px 28px;
-  border-radius: 4px;
-  border: none;
-  background: ${({ $locked }) => ($locked ? '#f59e0b' : 'var(--lime)')};
-  color: #07090b;
-  font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 16px;
-  font-style: italic;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  animation: ${pulseGlow} 2.6s infinite ease-in-out;
-  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-
-  &:hover:not(:disabled) {
-    transform: scale(1.03);
-    background: ${({ $locked }) => ($locked ? '#fbbf24' : '#e6ff66')};
-  }
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    background: var(--line-strong);
-    color: var(--text-dim);
-    animation: none;
-    box-shadow: none;
-  }
-
-  ${media.mobile} {
-    width: 100%;
-    min-width: 0;
-    padding: 14px 20px;
-  }
-`;
-
-const RequirementWarn = styled.div`
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--warning);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  background: rgba(245, 158, 11, 0.12);
-  padding: 4px 12px;
-  border-radius: 3px;
-  border: 1px solid rgba(245, 158, 11, 0.35);
-`;
-
-/* CENTERED BOTTOM RAIL */
-const CarouselWrap = styled.div`
-  pointer-events: auto;
-  width: 100%;
-  max-width: 1060px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-`;
-
-const ArrowNavBtn = styled.button`
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  flex: 0 0 auto;
-  border-radius: 4px;
-  border: 1px solid var(--line-strong);
-  background: rgba(10, 14, 18, 0.85);
-  backdrop-filter: blur(12px);
-  color: var(--text);
-  cursor: pointer;
-  transition: all 0.15s ease;
-
-  &:hover {
-    border-color: var(--lime);
-    color: var(--lime);
-    background: rgba(215, 255, 63, 0.12);
-    transform: scale(1.05);
-  }
-
-  ${media.mobile} {
-    display: none;
-  }
-`;
-
-const TrackRail = styled.div`
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding: 6px 4px;
-  scroll-behavior: smooth;
-  scrollbar-width: thin;
-  width: 100%;
-
-  &::-webkit-scrollbar {
-    height: 4px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: rgba(215, 255, 63, 0.25);
-    border-radius: 2px;
-  }
-`;
-
-const TrackCard = styled.button<{ $active: boolean; $locked: boolean }>`
-  min-width: 130px;
-  flex: 0 0 auto;
-  padding: 10px 14px;
-  border-radius: 5px;
-  border: 1px solid
-    ${({ $active, theme }) => ($active ? theme.colors.lime : 'var(--line-strong)')};
-  background: ${({ $active }) =>
-    $active ? 'rgba(215, 255, 63, 0.16)' : 'rgba(10, 14, 18, 0.86)'};
-  backdrop-filter: blur(14px);
-  box-shadow: ${({ $active }) =>
-    $active ? '0 0 20px rgba(215, 255, 63, 0.35)' : '0 8px 24px rgba(0, 0, 0, 0.5)'};
-  text-align: left;
-  cursor: pointer;
-  transform: ${({ $active }) => ($active ? 'translateY(-3px)' : 'none')};
-  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
-  opacity: ${({ $locked }) => ($locked ? 0.65 : 1)};
-
-  .card-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 8px;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text-dim)')};
-    margin-bottom: 4px;
-  }
-
-  strong {
-    display: block;
-    font-family: ${({ theme }) => theme.fonts.display};
-    font-size: 12px;
-    font-style: italic;
-    font-weight: 900;
-    text-transform: uppercase;
-    color: ${({ $active }) => ($active ? 'var(--lime)' : 'var(--text)')};
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .card-bottom {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 4px;
-    font-size: 8px;
-    font-weight: 700;
-    color: var(--text-dim);
-    text-transform: uppercase;
-  }
-
-  &:hover {
-    border-color: var(--lime);
-    transform: translateY(-4px);
-    background: rgba(215, 255, 63, 0.1);
-  }
-`;
-
 export default function DestinationsPage() {
   const router = useRouter();
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
-  const railRef = useRef<HTMLDivElement>(null);
 
   const coins = useGameStore((state) => state.coins);
   const selectedCarId = useGameStore((state) => state.selectedCar);
@@ -517,16 +281,16 @@ export default function DestinationsPage() {
 
   const difficultyTone =
     destination.difficulty === 'relaxed'
-      ? '#38bdf8'
+      ? 'var(--info)'
       : destination.difficulty === 'standard'
-        ? '#d7ff3f'
+        ? 'var(--lime)'
         : destination.difficulty === 'hard'
-          ? '#fbbf24'
-          : '#ff5d5d';
+          ? 'var(--warning)'
+          : 'var(--danger)';
 
   return (
     <Stage>
-      {/* 3D Real-time Destination Environment with centered camera */}
+      {/* 3D Real-time Destination Environment with 100% unobstructed view */}
       <BackgroundCanvas>
         <PreviewCanvas
           car={car}
@@ -555,111 +319,145 @@ export default function DestinationsPage() {
             <div className="stat-pill">
               <Compass /> {unlockedDestinations.length}/{DESTINATIONS.length} UNLOCKED
             </div>
-            <div className="stat-pill">
+            <div className="stat-pill currency">
               <Coins /> {formatNumber(coins)}
             </div>
           </HeaderStats>
         </TopNav>
-
-        {/* CENTERED HERO DISPLAY */}
-        <CenterHero>
-          <KickerBadge>
-            <Sparkles size={11} /> {destination.region} · {destination.environment.toUpperCase()} ·{' '}
-            {destination.theme.timeOfDay.toUpperCase()}
-          </KickerBadge>
-
-          <HeroTitle>
-            {destination.name} <em>{destination.difficulty}</em>
-          </HeroTitle>
-
-          <HeroTagline>{destination.tagline}</HeroTagline>
-
-          <BadgesStrip>
-            <MetricBadge $tone={difficultyTone}>
-              ⚡ {destination.difficulty.toUpperCase()}
-            </MetricBadge>
-            <MetricBadge>
-              🏁 Length: <b>{formatDistance(destination.distanceTarget)}</b>
-            </MetricBadge>
-            <MetricBadge>
-              ☁️ Weather: <b>{destination.theme.weather.toUpperCase()}</b>
-            </MetricBadge>
-            <MetricBadge>
-              🏆 Best Record: <b>{formatNumber(routeBest)} PTS</b>
-            </MetricBadge>
-          </BadgesStrip>
-
-          <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: '100%' }}>
-            {!isUnlocked ? (
-              <>
-                <MainActionBtn
-                  type="button"
-                  $locked
-                  disabled={coins < destination.coinCost || !requirement.met}
-                  onClick={handleUnlock}
-                >
-                  <Unlock size={18} /> Unlock Route ({formatNumber(destination.coinCost)} Coins)
-                </MainActionBtn>
-                {!requirement.met && (
-                  <RequirementWarn>
-                    Requires: {requirement.missing.join(' · ')}
-                  </RequirementWarn>
-                )}
-              </>
-            ) : (
-              <MainActionBtn type="button" onClick={handleRaceNow}>
-                <Play size={18} fill="currentColor" /> Select &amp; Race Route
-              </MainActionBtn>
-            )}
-          </div>
-        </CenterHero>
-
-        {/* CENTERED TRACK SELECTOR CAROUSEL */}
-        <CarouselWrap>
-          <ArrowNavBtn
-            type="button"
-            onClick={() => cycleRoute(-1)}
-            aria-label="Previous destination"
-          >
-            <ChevronLeft size={20} />
-          </ArrowNavBtn>
-
-          <TrackRail ref={railRef}>
-            {DESTINATIONS.map((d) => {
-              const active = d.id === destination.id;
-              const locked = !unlockedDestinations.includes(d.id);
-              return (
-                <TrackCard
-                  key={d.id}
-                  type="button"
-                  $active={active}
-                  $locked={locked}
-                  onClick={() => handleSelectRoute(d.id)}
-                >
-                  <div className="card-top">
-                    <span>{d.region.split(' ')[0]}</span>
-                    {locked && <Lock size={10} />}
-                  </div>
-                  <strong>{d.name}</strong>
-                  <div className="card-bottom">
-                    <span>{d.difficulty}</span>
-                    <span>·</span>
-                    <span>{formatDistance(d.distanceTarget)}</span>
-                  </div>
-                </TrackCard>
-              );
-            })}
-          </TrackRail>
-
-          <ArrowNavBtn
-            type="button"
-            onClick={() => cycleRoute(1)}
-            aria-label="Next destination"
-          >
-            <ChevronRight size={20} />
-          </ArrowNavBtn>
-        </CarouselWrap>
       </Overlay>
+
+      {/* FIXED ALL-IN-ONE RIGHT-SIDE GLASSMORPHISM SIDEBAR */}
+      <GameSidebarRoot aria-label="Destination Information & Select">
+        <MobileDragHandle />
+        <SidebarScroll>
+          <div>
+            <SidebarKicker>
+              <Sparkles size={11} /> {destination.region} {'//'} DESTINATION SPEC
+            </SidebarKicker>
+            <SidebarHeaderRow>
+              <SidebarTitle>{destination.name}</SidebarTitle>
+              <QuickCycleGroup>
+                <button type="button" onClick={() => cycleRoute(-1)} title="Previous Route (Left Arrow)">
+                  <ChevronLeft size={15} />
+                </button>
+                <span>{currentIndex + 1}/{DESTINATIONS.length}</span>
+                <button type="button" onClick={() => cycleRoute(1)} title="Next Route (Right Arrow)">
+                  <ChevronRight size={15} />
+                </button>
+              </QuickCycleGroup>
+            </SidebarHeaderRow>
+            <SidebarSubtitle>{destination.tagline}</SidebarSubtitle>
+          </div>
+
+          <SidebarBadgeRow>
+            <SidebarBadge $tone={isUnlocked ? 'var(--lime)' : 'var(--warning)'}>
+              {isUnlocked ? 'UNLOCKED' : `LOCKED · ${formatNumber(destination.coinCost)} COINS`}
+            </SidebarBadge>
+            <SidebarBadge $tone={difficultyTone}>
+              {destination.difficulty.toUpperCase()}
+            </SidebarBadge>
+            <SidebarBadge>
+              {destination.environment.toUpperCase()}
+            </SidebarBadge>
+            <SidebarBadge>
+              {destination.theme.timeOfDay.toUpperCase()} LIGHTING
+            </SidebarBadge>
+          </SidebarBadgeRow>
+
+          <SidebarMetricGrid>
+            <SidebarMetricCard>
+              <span className="label">Target Length</span>
+              <span className="value">{formatDistance(destination.distanceTarget)}</span>
+            </SidebarMetricCard>
+
+            <SidebarMetricCard $highlight={routeBest > 0}>
+              <span className="label">Best Record</span>
+              <span className="value">
+                {routeBest > 0 ? `${formatNumber(routeBest)} PTS` : 'NO RECORD'}
+              </span>
+            </SidebarMetricCard>
+
+            <SidebarMetricCard>
+              <span className="label">Weather</span>
+              <span className="value">{destination.theme.weather.toUpperCase()}</span>
+            </SidebarMetricCard>
+
+            <SidebarMetricCard>
+              <span className="label">Traffic Density</span>
+              <span className="value">HIGHWAY</span>
+            </SidebarMetricCard>
+          </SidebarMetricGrid>
+
+          {!isUnlocked && (
+            <div>
+              {!requirement.met ? (
+                <SidebarNotice $tone="warning">
+                  Requirement: {requirement.missing.join(' · ')}
+                </SidebarNotice>
+              ) : (
+                <SidebarNotice $tone="info">
+                  Requirements met. Unlock for {formatNumber(destination.coinCost)} coins.
+                </SidebarNotice>
+              )}
+            </div>
+          )}
+
+          {/* DESTINATIONS SELECTION DIRECTORY IN SIDEBAR */}
+          <SidebarSection>
+            <span className="section-label">All Destinations ({unlockedDestinations.length}/{DESTINATIONS.length} Unlocked)</span>
+            <RosterList>
+              {DESTINATIONS.map((d) => {
+                const active = d.id === destination.id;
+                const locked = !unlockedDestinations.includes(d.id);
+                return (
+                  <RosterItem
+                    key={d.id}
+                    type="button"
+                    $active={active}
+                    $locked={locked}
+                    onClick={() => handleSelectRoute(d.id)}
+                  >
+                    <div className="item-left">
+                      <div className="item-class">{d.region} · {d.environment.toUpperCase()}</div>
+                      <div className="item-name">{d.name}</div>
+                    </div>
+                    <div className="item-right">
+                      {active ? (
+                        <span className="tag-equipped">
+                          <Check size={11} /> SELECTED
+                        </span>
+                      ) : !locked ? (
+                        <span className="tag-owned">{formatDistance(d.distanceTarget)}</span>
+                      ) : (
+                        <span className="tag-locked">
+                          <Lock size={10} /> {formatNumber(d.coinCost)}
+                        </span>
+                      )}
+                    </div>
+                  </RosterItem>
+                );
+              })}
+            </RosterList>
+          </SidebarSection>
+        </SidebarScroll>
+
+        <SidebarFooter>
+          {isUnlocked ? (
+            <SidebarPrimaryBtn type="button" onClick={handleRaceNow}>
+              <Play size={18} fill="currentColor" /> Select &amp; Race Route
+            </SidebarPrimaryBtn>
+          ) : (
+            <SidebarPrimaryBtn
+              type="button"
+              $tone="amber"
+              disabled={coins < destination.coinCost || !requirement.met}
+              onClick={handleUnlock}
+            >
+              <Unlock size={18} /> Unlock Route ({formatNumber(destination.coinCost)} Coins)
+            </SidebarPrimaryBtn>
+          )}
+        </SidebarFooter>
+      </GameSidebarRoot>
     </Stage>
   );
 }
